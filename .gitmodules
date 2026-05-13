@@ -1,0 +1,3 @@
+[submodule "FastMM4"]
+	path = FastMM4
+	url = https://github.com/pleriche/FastMM4.git
