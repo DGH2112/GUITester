@@ -1,3 +1,6 @@
 [submodule "FastMM4"]
 	path = FastMM4
 	url = https://github.com/pleriche/FastMM4.git
+[submodule "DDetours"]
+	path = DDetours
+	url = https://github.com/MahdiSafsafi/DDetours.git
