@@ -1,0 +1,27 @@
+
+<Goal>            ::= <Statement>*
+
+<Statement>       ::= ( <Launch> | <WaitForIdle> | <TestClass> | <SendKeys> | <WaitForWindow> | <Wait> | <CheckProcessEnd>) ';'
+
+<Launch>          ::= 'LAUNCH' '(' <StringLiteral> ')'
+
+<WaitForIdle>     ::= 'WAITFORIDLE' '(' <IntegerNumber> ')'
+
+<TestClass>       ::= 'TESTCLASS' '(' <StringLiteral> ')'
+
+<SendKeys>        ::= 'SENDKEYS' '(' '[' [ <StringList> ] ']' ',' ( <StringLiteral> | <Character> ) ')'
+
+<WaitForWindow>   ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')'
+
+<Wait>            ::= 'WAIT' '(' <IntegerNumber> ')'
+
+<CheckProcessEnd> ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')'
+
+<StringLiteral>   ::= '''' (#32..#127)* ''''
+
+<StringList>      ::= ( <StringLiteral> ( ',' <StringLiteral> ) )
+
+<IntegerNumber>   ::= ('0'..'9')*
+
+<Character>       ::= '#' <IntegerNumber>
+
