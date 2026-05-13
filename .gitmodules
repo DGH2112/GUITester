@@ -7,3 +7,6 @@
 [submodule "VCLStyles"]
 	path = VCLStyles
 	url = https://github.com/RRUZ/vcl-styles-utils.git
+[submodule "Spring4D"]
+	path = Spring4D
+	url = https://bitbucket.org/sglienke/spring4d.git

@@ -53,7 +53,7 @@
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
-        <DCC_UnitSearchPath>FastMM4;DDetours\Source;VCLStyles\Common;..\PyScripter_SynEdit\Source;..\PyScripter_SynEdit\Source\Highlighters;..\Spring4D\Source;..\Spring4D\Source\Base;..\Spring4D\Source\Base\Collections;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>FastMM4;DDetours\Source;VCLStyles\Common;Spring4D\Source;Spring4D\Source\Base;Spring4D\Source\Base\Collections;..\PyScripter_SynEdit\Source;..\PyScripter_SynEdit\Source\Highlighters;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <Custom_Styles>&quot;Tablet Dark|VCLSTYLE|$(BDSCOMMONDIR)\Styles\TabletDark.vsf&quot;;&quot;Tablet Light|VCLSTYLE|$(BDSCOMMONDIR)\Styles\TabletLight.vsf&quot;</Custom_Styles>
         <DCC_ExeOutput>$(Platform)\$(Config)</DCC_ExeOutput>
         <DCC_DcuOutput>$(Platform)\$(Config)</DCC_DcuOutput>
