@@ -4,3 +4,6 @@
 [submodule "DDetours"]
 	path = DDetours
 	url = https://github.com/MahdiSafsafi/DDetours.git
+[submodule "VCLStyles"]
+	path = VCLStyles
+	url = https://github.com/RRUZ/vcl-styles-utils.git
