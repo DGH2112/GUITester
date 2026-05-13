@@ -10,3 +10,6 @@
 [submodule "Spring4D"]
 	path = Spring4D
 	url = https://bitbucket.org/sglienke/spring4d.git
+[submodule "PyScripterSynEdit"]
+	path = PyScripterSynEdit
+	url = https://github.com/pyscripter/SynEdit.git
