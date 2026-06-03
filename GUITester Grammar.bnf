@@ -1,27 +1,72 @@
+/**
 
-<Goal>            ::= <Statement>*
+  This file contains the Backus-Naur grammar for the Pascal style language
+  used to perform user actions to test an applications behaviour.
 
-<Statement>       ::= ( <Launch> | <WaitForIdle> | <TestClass> | <SendKeys> | <WaitForWindow> | <Wait> | <CheckProcessEnd>) ';'
+  @Author  David Hoyle
+  @Version 1.197
+  @Date    02 Jun 2026
 
-<Launch>          ::= 'LAUNCH' '(' <StringLiteral> ')'
+  @usesemicolon
+  @license
 
-<WaitForIdle>     ::= 'WAITFORIDLE' '(' <IntegerNumber> ')'
+    GUI Tester is a Win64 GUI application in which you can write statements
+    to mimic a users interaction with an application and test that certain
+    operations perform as expected.
+    
+    Copyright (C) 2026  David Hoyle (https://github.com/DGH2112/GUITester/)
 
-<TestClass>       ::= 'TESTCLASS' '(' <StringLiteral> ')'
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-<SendKeys>        ::= 'SENDKEYS' '(' '[' [ <StringList> ] ']' ',' ( <StringLiteral> | <Character> ) ')'
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-<WaitForWindow>   ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')'
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-<Wait>            ::= 'WAIT' '(' <IntegerNumber> ')'
+**/
+<Goal>            ::= <Statements>;
 
-<CheckProcessEnd> ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')'
+<Statements>      ::= <Statement>*;
 
-<StringLiteral>   ::= '''' (#32..#127)* ''''
+<Statement>       ::= ( <Launch> |
+                        <WaitForIdle> |
+                        <TestClass> |
+                        <SendKeys> |
+                        <WaitForWindow> |
+                        <Wait> |
+                        <CheckProcessEnd>) ';';
 
-<StringList>      ::= ( <StringLiteral> ( ',' <StringLiteral> ) )
+<Launch>          ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
 
-<IntegerNumber>   ::= ('0'..'9')*
+<Executable>      ::= <StringLiteral>;
 
-<Character>       ::= '#' <IntegerNumber>
+<Directory>       ::= <StringLiteral>;
+
+<CommandLine>     ::= <StringLiteral>;
+
+<WaitForIdle>     ::= 'WAITFORIDLE' '(' <IntegerNumber> ')';
+
+<TestClass>       ::= 'TESTCLASS' '(' <StringLiteral> ')';
+
+<SendKeys>        ::= 'SENDKEYS' '(' '[' [ <StringList> ] ']' ',' ( <StringLiteral> | <Character> ) ')';
+
+<WaitForWindow>   ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')';
+
+<Wait>            ::= 'WAIT' '(' <IntegerNumber> ')';
+
+<CheckProcessEnd> ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')';
+
+<StringLiteral>   ::= '''' (#32..#127)* '''';
+
+<StringList>      ::= ( <StringLiteral> ( ',' <StringLiteral> ) );
+
+<IntegerNumber>   ::= ('0'..'9')*;
+
+<Character>       ::= '#' <IntegerNumber>;
 

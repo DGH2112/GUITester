@@ -1,3 +1,33 @@
+(**
+
+  This module contains the interfaces and simple type for use throughout the application.
+
+  @Author  David Hoyle
+  @Version 1.561
+  @Date    14 May 2026
+
+  @license
+
+    GUI Tester is a Win64 GUI application in which you can write statements
+    to mimic a users interaction with an application and test that certain
+    operations perform as expected.
+    
+    Copyright (C) 2026  David Hoyle (https://github.com/DGH2112/GUITester/)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+**)
 Unit GUITester.Interfaces;
 
 Interface
@@ -6,6 +36,7 @@ uses
   System.SysUtils;
 
 Type
+  (** A enumerate to define the types of token that the parser can interpret. **)
   TGTTokenType = (
     ttUnknown,
     ttKeyword,
@@ -18,6 +49,7 @@ Type
     ttIntegerNumber
   );
 
+  (** A record to describe the information required to understand a token within the language. **)
   TGTToken = Record
     FText      : String;
     FTokenType : TGTTokenType;
@@ -30,6 +62,7 @@ Type
     Function AsInteger : Integer;
   End;
   
+  (** An interface to define the attribute of the parser. **)
   IGTParser = Interface
   ['{CAA751B6-BDD4-4658-BF6B-9FB010FC8A3B}']
     // Getter and Setters
@@ -39,11 +72,31 @@ Type
     // Methods
     Function Parse(Const strSource : String) : Boolean;
     // Properties
+    (**
+      This property returns the text of the last error the parser found.
+      @precon  None.
+      @postcon returns the text of the last error the parser found.
+      @return  a String
+    **)
     Property LastError : String Read GetLastError;
+    (**
+      This property returns the line number of the token that caused the last parser error.
+      @precon  None.
+      @postcon Returns the line number of the token that caused the last parser error.
+      @return  an Integer
+    **)
     Property Line : Integer Read GetLine;
+    (**
+      This property returns the column of the token that caused the last parser error.
+      @precon  None.
+      @postcon Returns the column of the token that caused the last parser error.
+      @return  an Integer
+    **)
     Property Column : Integer Read GetColumn;
   End;
 
+  (** An enumerate of all the Statements types that the language supports. This may be removed and
+      replaced if this list gets too long. **)
   TGTStatementType = (
     stLaunch,
     stWaitForIdle,
@@ -54,24 +107,57 @@ Type
     stCheckProcessEnd
   );
 
+  (** An interface to define the attributes of a statement. **)
   IGTStatement = Interface
   ['{99029B50-CD45-47DC-ADE1-82971EFBD98B}']
     // Getter and Setters
     Function  GetStatementType : TGTStatementType;
-    Function  GetCount : Integer;
+    Function  GetParameterCount : Integer;
     Function  GetLine : Integer;
     Function  GetParameter(Const iIndex : Integer) : TGTToken;
     Function  GetAsString : String;
     // Methods
-    Procedure Add(Const Parameter : TGTToken);
+    Procedure AddParameter(Const Parameter : TGTToken);
     // Properties
+    (**
+      This property returns the statement type associated with the statement.
+      @precon  None.
+      @postcon Returns the statement type associated with the statement.
+      @return  a TGTStatementType
+    **)
     Property StatementType : TGTStatementType Read GetStatementType;
-    Property ParameterCount : Integer Read GetCount;
+    (**
+      This property returns the number of parameters that are associated with the statement.
+      @precon  None.
+      @postcon Returns the number of parameters that are associated with the statement.
+      @return  an Integer
+    **)
+    Property ParameterCount : Integer Read GetParameterCount;
+    (**
+      This property returns the token representing the indexed parameter.
+      @precon  iIndex must be a valid index between 0 and ParameterCount - 1.
+      @postcon Returns the token representing the indexed parameter.
+      @param   iIndex as an Integer as a constant
+      @return  a TGTToken
+    **)
     Property Parameter[Const iIndex : Integer] : TGTToken Read GetParameter; Default;
+    (**
+      This property returns the starting line number of the Statement in the editor.
+      @precon  None.
+      @postcon Returns the starting line number of the Statement in the editor.
+      @return  an Integer
+    **)
     Property Line : Integer Read GetLine;
+    (**
+      This property returns a string representation of the statement for debugging output.
+      @precon  None.
+      @postcon Returns a string representation of the statement for debugging output.
+      @return  a String
+    **)
     Property AsString : String Read GetAsString;
   End;
 
+  (** An interface to define a collection/list of statements to be processed. **)
   IGTStatements = Interface
   ['{BEF89536-57F6-46FE-8A66-23106AA69D68}']
     // Getters and Setters
@@ -80,11 +166,26 @@ Type
     // Methods
     Function  Add(Const eStatementType : TGTStatementType; Const iLine : Integer) : IGTStatement;
     // Properties
+    (**
+      This property returns the number of statements in the collection.
+      @precon  None.
+      @postcon Returns the number of statements in the collection.
+      @return  an Integer
+    **)
     Property Count : Integer Read GetCount;
+    (**
+      This property returns a reference to the indexed statement.
+      @precon  iIndex must be a valid index between 0 and Count - 1.
+      @postcon Returns a reference to the indexed statement.
+      @param   iIndex as an Integer as a constant
+      @return  an IGTStatement
+    **)
     Property Statement[Const iIndex  :Integer] : IGTStatement Read GetStatement; Default;
   End;
 
+  (** A root exception for all exceptions raised by the application. **)
   EGTException = Class(Exception);
+  (** An exception raised duration parsing the statements in the editor. **)
   EGTParserException = Class(EGTException);
 
 Implementation
@@ -92,22 +193,55 @@ Implementation
 uses
   System.TypInfo;
 
+(**
+
+  This method returns the token as an integer.
+
+  @precon  None.
+  @postcon Returns the token as an integer.
+
+  @return  an Integer
+
+**)
 Function TGTToken.AsInteger: Integer;
 
 Begin
   Result := FText.ToInteger;
 End;
 
+(**
+
+  This method returns a string representation of the token for debugging.
+
+  @precon  None.
+  @postcon Returns a string representation of the token for debugging.
+
+  @return  a String
+
+**)
 Function TGTToken.AsString(): String;
 
 ResourceString
-  strAsStringFmt = 'Text: "%s", Type: %s, Line: %d, Column: %d';
+  strAsStringFmt = '"%s", %s, %d:%d';
 
 Begin
   Result := Format(strAsStringFmt, [FText,
     GetEnumName(TypeInfo(TGTTokenType), Ord(FTokenType)), FLine, FColumn]);
 End;
 
+(**
+
+  A constructor for the TGTToken class.
+
+  @precon  None.
+  @postcon Initialises the token.
+
+  @param   strText    as a String as a constant
+  @param   eTokenType as a TGTTokenType as a constant
+  @param   iLine      as an Integer as a constant
+  @param   iCOlumn    as an Integer as a constant
+
+**)
 Constructor TGTToken.Create(Const strText: String; Const eTokenType: TGTTokenType; Const iLine,
   iCOlumn: Integer);
   
@@ -118,6 +252,16 @@ Begin
   FColumn := iColumn;
 End;
 
+(**
+
+  This method returns the text of the token without starting and ending quotes.
+
+  @precon  None.
+  @postcon Returns the text of the token without starting and ending quotes.
+
+  @return  a String
+
+**)
 Function TGTToken.DeQuoteString: String;
 
 Begin

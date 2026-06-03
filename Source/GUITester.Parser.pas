@@ -1,3 +1,34 @@
+(**
+
+  This module contains the implementation of the IGTParser interfaces for parsing the statements and
+  building a list of statements to execute.
+
+  @Author  David Hoyle
+  @Version 2.607
+  @Date    02 Jun 2026
+
+  @license
+
+    GUI Tester is a Win64 GUI application in which you can write statements
+    to mimic a users interaction with an application and test that certain
+    operations perform as expected.
+    
+    Copyright (C) 2026  David Hoyle (https://github.com/DGH2112/GUITester/)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+**)
 Unit GUITester.Parser;
 
 Interface
@@ -7,6 +38,7 @@ Uses
   GUITester.Interfaces;
 
 Type
+  (** A class to implement the recursive descent parser. **)
   TGTParser = Class(TInterfacedObject, IGTParser, IGTStatements)
   Strict Private
     FSource     : String;
@@ -18,7 +50,7 @@ Type
     FLastError  : String;
   Strict Protected
     // IGTParser
-    Function Parse(Const strSource : String) : Boolean;
+    Function  Parse(Const strSource : String) : Boolean;
     Function  GetLastError : String;
     Function  GetLine : Integer;
     Function  GetColumn : Integer;
@@ -29,7 +61,6 @@ Type
     // Parser Methods
     Procedure Goal;
     Procedure Statements();
-    Function  Statement() : Boolean;
     Function  Launch() : Boolean;
     Function  GetNextToken : TGTToken;
     Function  CharType(Const C : Char) : TGTTokenType;
@@ -44,6 +75,9 @@ Type
     Function  WaitForWindow() : Boolean;
     Function  Wait() : Boolean;
     Function  CheckProcessEnd() : Boolean;
+    Procedure CheckSymbol(Const strSymbol : String);
+    Procedure CheckInteger();
+    Procedure CheckString();
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -57,15 +91,20 @@ uses
   CodeSiteLogging,
   GUITester.Statement;
 
-ResourceString
-  strExpectedButFound = 'Expected "%s" but found "%s"! [%d:%d]';
-  strExpectedStringButFound = 'Expected a string literal but found "%s"! [%d:%d]';
-  strExpectedIntegerButFound = 'Expected an integer number but found "%s"! [%d:%d]';
-  strUnexpectedEndFile = 'Unexpected end of file stream!';
-  strUnexpectedTokenFound = 'Unexpected Token found "%s"! [%d,%d]';
-
 {.$DEFINE CODESITE}
 
+(**
+
+  This method create a new statement in the statement list and returns a reference to be populated.
+
+  @precon  None.
+  @postcon Create a new statement in the statement list and returns a reference to be populated.
+
+  @param   eStatementType as a TGTStatementType as a constant
+  @param   iLine          as an Integer as a constant
+  @return  an IGTStatement
+
+**)
 Function TGTParser.Add(Const eStatementType: TGTStatementType; Const iLine : Integer): IGTStatement;
 
 Begin
@@ -73,7 +112,19 @@ Begin
   FStatements.Add(Result);
 End;
 
-//: @nometric toxicity nestedifdepth
+(**
+
+  This method returns a token type enumerate for the given character.
+
+  @precon  None.
+  @postcon Returns a token type enumerate for the given character.
+
+  @nometric toxicity nestedIFdepth
+
+  @param   C as a Char as a constant
+  @return  a TGTTokenType
+
+**)
 Function TGTParser.CharType(Const C: Char): TGTTokenType;
 
 Begin
@@ -96,6 +147,35 @@ Begin
     Result := ttUnknown;
 End;
 
+(**
+
+  This method checks that the current token is an integer else it raises an exception.
+
+  @precon  None.
+  @postcon Checks that the current token is as integer else it raises an exception.
+
+**)
+Procedure TGTParser.CheckInteger();
+
+ResourceString
+  strExpectedIntegerButFound = 'Expected an integer number but found "%s"! [%d:%d]';
+
+Begin
+  If Token.FTokenType <> ttIntegerNumber Then
+    RaiseParserException(strExpectedIntegerButFound, [Token.FText, Token.FLine, Token.FColumn]);
+End;
+
+(**
+
+  This method parses the CHECKPROCESSEND statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for CHECKPROCESSEND is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.CheckProcessEnd: Boolean;
 
 Const
@@ -111,19 +191,65 @@ Begin
     Exit;
   T := Token;
   MoveToNextNonCommentToken();
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
+  CheckInteger();
   WaitTime := Token();
-  If WaitTime.FTokenType <> ttIntegerNumber Then
-    RaiseParserException(strExpectedIntegerButFound, [WaitTime.FText, WaitTime.FLine, WaitTime.FColumn]);
   MoveToNextNonCommentToken();
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(')');
   Statement := Add(stCheckProcessEnd, T.Fline);
-  Statement.Add(WaitTime);
+  Statement.AddParameter(WaitTime);
 End;
 
+(**
+
+  This method checks that the current token is a string else it raises an exception.
+
+  @precon  None.
+  @postcon Checks that the current token is a string else it raises an exception.
+
+**)
+Procedure TGTParser.CheckString;
+
+ResourceString
+  strExpectedStringButFound = 'Expected a string literal but found "%s"! [%d:%d]';
+
+Begin
+  If Token.FTokenType <> ttString Then
+    RaiseParserException(strExpectedStringButFound, [Token.FText, Token.FLine,
+      Token.FColumn]);
+End;
+
+(**
+
+  This method checks that the current token is the same as the given symbol string else it raises an
+  exception.
+
+  @precon  None.
+  @postcon Checks that the current token is the same as the given symbol string else it raises an
+           exception.
+
+  @param   strSymbol as a String as a constant
+
+**)
+Procedure TGTParser.CheckSymbol(Const strSymbol : String);
+
+ResourceString
+  strExpectedButFound = 'Expected "%s" but found "%s"! [%d:%d]';
+
+Begin
+  If CompareText(strSymbol, Token.FText) <> 0 Then
+    RaiseParserException(strExpectedButFound, [strSymbol, Token.FText, Token.FLine, Token.FColumn]);
+End;
+
+(**
+
+  A constructor for the TGTParser class.
+
+  @precon  None.
+  @postcon Creates the Token and Statement lists.
+
+**)
 Constructor TGTParser.Create();
 
 Begin
@@ -135,6 +261,14 @@ Begin
   FStatements := TCollections.CreateList<IGTStatement>;
 End;
 
+(**
+
+  A destructor for the TGTParser class.
+
+  @precon  None.
+  @postcon Does nothing at the moment.
+
+**)
 Destructor TGTParser.Destroy();
 
 Begin
@@ -142,43 +276,115 @@ Begin
   Inherited Destroy;
 End;
 
+(**
+
+  This method moves to the next token in the stream.
+
+  @precon  None.
+  @postcon The token stream moves along by one else a parser exception is raised.
+
+**)
 Procedure TGTParser.EatWhiteSpace;
 
 Begin
   GetNextToken;
 End;
 
+(**
+
+  This is a getter method for the Column property.
+
+  @precon  None.
+  @postcon Returns the column of the last error.
+
+  @return  an Integer
+
+**)
 Function TGTParser.GetColumn: Integer;
 
 Begin
   Result := FColumn;
 End;
 
+(**
+
+  This is a getter method for the Count property.
+
+  @precon  None.
+  @postcon Returns the number of statements in the statement list.
+  @return  an Integer
+
+**)
 Function TGTParser.GetCount: Integer;
 
 Begin
   Result := FStatements.Count;
 End;
 
+(**
+
+  This is a getter method for the Last Error property.
+
+  @precon  None.
+  @postcon Returns the error message associated with the last parser error or run-time error.
+
+  @return  a String
+
+**)
 Function TGTParser.GetLastError: String;
 
 Begin
   Result := FLastError;
 End;
 
+(**
+
+  This is a getter method for the Line property.
+
+  @precon  None.
+  @postcon Returns the line number of the last exception.
+
+  @return  an Integer
+
+**)
 Function TGTParser.GetLine: Integer;
 
 Begin
   Result := Fline;
 End;
 
-//: @nometric cyclometriccomplexity
+(**
+
+  This method parses the current stream position for the next token in the stream of text and puts it on
+  the token list else raises a parsing exception.
+
+  @precon  None.
+  @postcon Returns the next token in the stream and also adds it to the end of the  token list.
+
+  @nometric cyclometriccomplexity
+
+  @return  a TGTToken
+
+**)
 Function TGTParser.GetNextToken(): TGTToken;
 
 Type
   TGTBlock = (blString, blComment);
   TGTBlocks = Set of TGTBlock;
 
+  (**
+
+    This procedure switch blocks on and off. Used to understand whether we are in comments, string
+    literals, etc.
+
+    @precon  None.
+    @postcon The given enumerate is either added or removed from the given set based on whether it was
+             there already (toggle).
+
+    @param   setBlocks as a TGTBlocks as a reference
+    @param   eBlock    as a TGTBlock as a constant
+
+  **)
   Procedure SwitchBlock(Var setBlocks : TGTBlocks; Const eBlock : TGTBlock);
 
   Begin
@@ -234,12 +440,31 @@ Begin
   FTokens.Add(Result);
 End;
 
+(**
+
+  This is a getter method for the Statement property.
+
+  @precon  None.
+  @postcon Returns the indexed statement from the list.
+
+  @param   iIndex as an Integer as a constant
+  @return  an IGTStatement
+
+**)
 Function TGTParser.GetStatement(Const iIndex: Integer): IGTStatement;
 
 Begin
   Result := FStatements[iIndex];
 End;
 
+(**
+
+  This method begins the parsing of the source text and captures any parser exceptions.
+
+  @precon  None.
+  @postcon The source text is parsed else an parser exceptions are captured.
+
+**)
 Procedure TGTParser.Goal();
 
 ResourceString
@@ -259,6 +484,17 @@ Begin
   End;
 End;
 
+(**
+
+  This method returns true of the current token is in the given array of strings.
+
+  @precon  None.
+  @postcon Returns true of the current token is in the given array of strings.
+
+  @param   astrText as a TArray<String> as a constant
+  @return  a Boolean
+
+**)
 Function TGTParser.IsTokenIn(Const astrText: TArray<String>): Boolean;
 
 Var 
@@ -274,6 +510,17 @@ Begin
       End;
 End;
 
+(**
+
+  This method parses the LAUNCH statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for LAUNCH is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.Launch: Boolean;
 
 Const
@@ -281,6 +528,7 @@ Const
 
 Var
   CommandLine: TGTToken;
+  Directory : TGTToken;
   EXEFileName : TGTToken;
   Statement : IGTStatement;
   T: TGTToken;
@@ -292,32 +540,45 @@ Begin
     Exit;
   T := Token;
   MoveToNextNonCommentToken();;
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
+  CheckString();
   EXEFileName := Token;
-  If EXEFileName.FTokenType <> ttString Then
-    RaiseParserException(strExpectedStringButFound, [EXEFileName.FText, EXEFileName.FLine,
-      EXEFileName.FColumn]);
   MoveToNextNonCommentToken();
   If Token.FText = ',' Then
     Begin
       MoveToNextNonCommentToken();
-      CommandLine := Token;
-      If Commandline.FTokenType <> ttString Then
-        RaiseParserException(strExpectedStringButFound, [Commandline.FText, Commandline.FLine,
-          Commandline.FColumn]);
+      CheckString();
+      Directory := Token;
       MoveToNextNonCommentToken();
+      If Token.FText = ',' Then
+        Begin
+          MoveToNextNonCommentToken();
+          CheckString();
+          CommandLine := Token;
+          MoveToNextNonCommentToken();
+        End Else
+          CommandLine.Create('', ttUnknown, 0, 0);
     End Else
-      CommandLine.Create('', ttUnknown, 0, 0);
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+      Directory.Create('', ttUnknown, 0, 0);
+  CheckSymbol(')');
   Statement := Add(stLaunch, T.FLine);
-  Statement.Add(EXEFileName);
+  Statement.AddParameter(EXEFileName);
+  If Directory.FTokenType = ttString Then
+    Statement.AddParameter(Directory);
   If CommandLine.FTokenType = ttString Then
-    Statement.Add(CommandLine);
+    Statement.AddParameter(CommandLine);
 End;
 
+(**
+
+  This method moves to the next non comment token in the stream of text.
+
+  @precon  None.
+  @postcon The current token is moved to the next non-comment/whitespace token else a parser exception is
+           raised.
+
+**)
 Procedure TGTParser.MoveToNextNonCommentToken;
 
 Begin
@@ -327,6 +588,17 @@ Begin
     GetNextToken();
 End;
 
+(**
+
+  This method starts the parsing of the given source text.
+
+  @precon  None.
+  @postcon The given source is parsed and if there are any issues parser errors are raised.
+
+  @param   strSource as a String as a constant
+  @return  a Boolean
+
+**)
 Function TGTParser.Parse(Const strSource: String): Boolean;
 
 Begin
@@ -336,6 +608,18 @@ Begin
   Goal();
 End;
 
+(**
+
+  This method raises a parser exception with the given message expanded with the given constant
+  arguments.
+
+  @precon  None.
+  @postcon A parser exception is raised.
+
+  @param   strMsg as a String as a constant
+  @param   Args   as an Array Of Const as a constant
+
+**)
 Procedure TGTParser.RaiseParserException(Const strMsg : String; Const Args : Array Of Const);
 
 Begin
@@ -343,7 +627,17 @@ Begin
   Raise EGTParserException.CreateFmt(strMsg, Args)
 End;
 
-//: @nometric toxicity
+(**
+
+  This method parses the SENDKEYS statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for SENDKEYS is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.SendKeys: Boolean;
 
 Const
@@ -363,11 +657,9 @@ Begin
   T := Token;
   ExtendedKeys := TCollections.CreateList<TGTToken>;
   MoveToNextNonCommentToken();;
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
-  If CompareText('[', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['[', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('[');
   MoveToNextNonCommentToken();
   While IsTokenIn(strExtendedKeys) Do
     Begin
@@ -377,47 +669,46 @@ Begin
         Break;
       MoveToNextNonCommentToken();
     End;
-  If CompareText(']', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [']', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(']');
   MoveToNextNonCommentToken();
-  If CompareText(',', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [',', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(',');
   MoveToNextNonCommentToken();
   SendKeysString := Token;
   If SendKeysString.FText = '#' Then
     Begin
       MoveToNextNonCommentToken();
       SendKeysString.Create(Char(Token.AsInteger), ttString, Token.FLine, Token.FColumn);
-    End;
-  If SendKeysString.FTokenType <> ttString Then
-    RaiseParserException(strExpectedStringButFound, [SendKeysString.FText, SendKeysString.FLine,
-      SendKeysString.FColumn]);
+    End Else
+      CheckString();
   MoveToNextNonCommentToken();
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(')');
   Statement := Add(stSendKeys, T.FLine);
-  Statement.Add(SendKeysString);
+  Statement.AddParameter(SendKeysString);
   For T In ExtendedKeys Do
-    Statement.Add(T);
+    Statement.AddParameter(T);
 End;
 
-Function TGTParser.Statement: Boolean;
+(**
 
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'Statement', tmoTiming);{$ENDIF}
-  Result := Launch;
-End;
+  This method parses the STAEMENTS statement in the grammar.
 
+  @precon  None.
+  @postcon The grammar for STATEMENTS is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+**)
 Procedure TGTParser.Statements;
+
+ResourceString
+  strUnexpectedTokenFound = 'Unexpected Token found "%s"! [%d,%d]';
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'Statements', tmoTiming);{$ENDIF}
-  While Statement() Or WaitForIdle() Or TestClass() Or SendKeys() Or WaitForWindow() Or Wait() Or
+  While Launch() Or WaitForIdle() Or TestClass() Or SendKeys() Or WaitForWindow() Or Wait() Or
     CheckProcessEnd() Do
     Begin
       MoveToNextNonCommentToken();
-      If Comparetext(';', Token.FText) <> 0 Then
-        RaiseParserException(strExpectedButFound, [';', Token.FText, Token.FLine, Token.FColumn]);
+      CheckSymbol(';');
       MoveToNextNonCommentToken();
     End;
   If FTokenPos <= FSource.Length Then
@@ -428,6 +719,17 @@ Begin
     End;
 End;
 
+(**
+
+  This method parses the TESTCLASS statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for TESTCLASS is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.TestClass: Boolean;
 
 Const
@@ -444,21 +746,31 @@ Begin
     Exit;
   T := Token;
   MoveToNextNonCommentToken();;
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
+  CheckString();
   ClassName := Token;
-  If ClassName.FTokenType <> ttString Then
-    RaiseParserException(strExpectedStringButFound, [ClassName.FText, ClassName.FLine,
-      ClassName.FColumn]);
+  //: @BUG No tests are performed!!!!
   MoveToNextNonCommentToken();
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(')');
   Statement := Add(stTestClass, T.FLine);
-  Statement.Add(ClassName);
+  Statement.AddParameter(ClassName);
 End;
 
+(**
+
+  This method returns the last token in the token list.
+
+  @precon  None.
+  @postcon If there are no tokens a parser exception is raised.
+
+  @return  a TGTToken
+
+**)
 Function TGTParser.Token: TGTToken;
+
+ResourceString
+  strUnexpectedEndFile = 'Unexpected end of file stream!';
 
 Begin
   If FTokens.Count = 0 Then
@@ -466,6 +778,17 @@ Begin
   Result := FTokens[FTokens.Count - 1];
 End;
 
+(**
+
+  This method parses the WAIT statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for WAIT is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.Wait: Boolean;
 
 Const
@@ -482,19 +805,27 @@ Begin
     Exit;
   T := Token;
   MoveToNextNonCommentToken();
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
+  CheckInteger();
   WaitTime := Token();
-  If WaitTime.FTokenType <> ttIntegerNumber Then
-    RaiseParserException(strExpectedIntegerButFound, [WaitTime.FText, WaitTime.FLine, WaitTime.FColumn]);
   MoveToNextNonCommentToken();
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(')');
   Statement := Add(stWait, T.Fline);
-  Statement.Add(WaitTime);
+  Statement.AddParameter(WaitTime);
 End;
 
+(**
+
+  This method parses the WAITFORIDLE statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for WAITFORIDLE is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.WaitForIdle: Boolean;
 
 Const
@@ -512,19 +843,27 @@ Begin
     Exit;
   T := Token;
   MoveToNextNonCommentToken();
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
+  CheckInteger();
   WaitTime := Token();
-  If WaitTime.FTokenType <> ttIntegerNumber Then
-    RaiseParserException(strExpectedIntegerButFound, [WaitTime.FText, WaitTime.FLine, WaitTime.FColumn]);
   MoveToNextNonCommentToken();
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(')');
   Statement := Add(stWaitForIdle, T.Fline);
-  Statement.Add(WaitTime);
+  Statement.AddParameter(WaitTime);
 End;
 
+(**
+
+  This method parses the WAITFORWINDOW statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for WAITFORWINDOW is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.WaitForWindow: Boolean;
 
 Const
@@ -543,26 +882,20 @@ Begin
     Exit;
   T := Token;
   MoveToNextNonCommentToken();
-  If CompareText('(', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, ['(', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
+  CheckString();
   WindowClass := Token();
-  If WindowClass.FTokenType <> ttString Then
-    RaiseParserException(strExpectedStringButFound, [WindowClass.FText, WindowClass.FLine,
-      WindowClass.FColumn]);
   MoveToNextNonCommentToken();
-  If CompareText(',', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [',', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(',');
   MoveToNextNonCommentToken();
+  CheckInteger();
   WaitTime := Token();
-  If WaitTime.FTokenType <> ttIntegerNumber Then
-    RaiseParserException(strExpectedIntegerButFound, [WaitTime.FText, WaitTime.FLine, WaitTime.FColumn]);
   MoveToNextNonCommentToken();
-  If CompareText(')', Token.FText) <> 0 Then
-    RaiseParserException(strExpectedButFound, [')', Token.FText, Token.FLine, Token.FColumn]);
+  CheckSymbol(')');
   Statement := Add(stWaitForWindow, T.Fline);
-  Statement.Add(WindowClass);
-  Statement.Add(WaitTime);
+  Statement.AddParameter(WindowClass);
+  Statement.AddParameter(WaitTime);
 End;
 
 End.
