@@ -4,7 +4,7 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.210
+  @Version 1.238
   @Date    06 Jun 2026
 
   @usesemicolon
@@ -34,14 +34,15 @@
 
 <Statements>      ::= <Statement>*;
 
-<Statement>       ::= ( <Launch> |
-                        <WaitForIdle> |
-                        <TestClass> |
-                        <SendKeys> |
-                        <WaitForWindow> |
-                        <Wait> |
+<Statement>       ::= ( <Launch>          |
+                        <WaitForIdle>     |
+                        <TestClass>       |
+                        <SendKeys>        |
+                        <WaitForWindow>   |
+                        <Wait>            |
                         <CheckProcessEnd> |
-                        <BringToFront>
+                        <BringToFront>    |
+                        <PositionWindow>
                       ) ';';
 
 <Launch>          ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
@@ -65,6 +66,9 @@
 <CheckProcessEnd> ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')';
 
 <BringToFront>    ::= 'BRINGTOFRONT' '(' <StringLiteral> ')';
+
+<PositionWindow>  ::= 'POSITIONWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ',' <IntegerNumber> ','
+                                           <IntegerNumber> ',' <IntegerNumber> ')';
 
 <StringLiteral>   ::= '''' (#32..#127)* '''';
 

@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 1.564
+  @Version 1.731
   @Author  David Hoyle
   @Date    06 Jun 2026
   
@@ -52,6 +52,7 @@ Type
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
+    Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -76,7 +77,7 @@ Uses
 
   This method finds the windows with the given window class name and brings it to the front.
 
-  @precon  None.
+  @precon  Statement must be a valid instance.
   @postcon The window  with the given class name it brought to the front.
 
   @param   Statement as an IGTStatement as a constant
@@ -262,6 +263,53 @@ Begin
         FLastCommandError(E.Message);
       End;
   End;
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method positions the window with the given window class name.
+
+  @precon  Statement must be a valid instance.
+  @postcon If the window is found, it is positioned.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.PositionWindow(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strWindowNotFound = 'Window "%S" not found!';
+
+Const
+  iTopParam = 1;
+  iLeftParam = 2;
+  iWidthParam = 4;
+  iHeightParam = 3;
+
+Var
+  iWnd: HWND;
+
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  If iWnd > 0 Then
+    Begin
+      Win32Check(MoveWindow(
+        iWnd,
+        Statement.Parameter[iLeftParam].AsInteger, // Left
+        Statement.Parameter[iTopParam].AsInteger, // Top
+        Statement.Parameter[iWidthParam].AsInteger, // Width
+        Statement.Parameter[iHeightParam].AsInteger, // Height
+        False
+      ));
+      Result := tsSuccessful;
+    End Else
+    Begin
+      Result := tsFailure;
+      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
+    End;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 

@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 2.699
+  @Version 2.952
   @Date    06 Jun 2026
 
   @license
@@ -79,6 +79,7 @@ Type
     Procedure CheckInteger();
     Procedure CheckString();
     Function  BringToFront() : Boolean;
+    Function  PositionWindow() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -647,6 +648,63 @@ End;
 
 (**
 
+  This method parses the PositionWindow element of the grammar.
+
+  @precon  None.
+  @postcon Find the window and positions with the given coordinates.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.PositionWindow: Boolean;
+
+Const
+  strPOSITIONWINDOW = 'POSITIONWINDOW';
+
+Var
+  Statement: IGTStatement;
+  
+Begin
+  Result := CompareText(strPOSITIONWINDOW, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stPositionWindow, Token().Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  // Window Class
+  CheckString();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  // Top
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  // Left
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  // Height
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  // Width
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
+End;
+
+(**
+
   This method raises a parser exception with the given message expanded with the given constant
   arguments.
 
@@ -733,6 +791,8 @@ End;
   @postcon The grammar for STATEMENTS is parse and a statement pushed onto the statement list else
            if the parsing fails, a parser exception is raised.
 
+  @nometric cyclometriccomplexity
+
 **)
 Procedure TGTParser.Statements;
 
@@ -741,8 +801,16 @@ ResourceString
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'Statements', tmoTiming);{$ENDIF}
-  While Launch() Or WaitForIdle() Or TestClass() Or SendKeys() Or WaitForWindow() Or Wait() Or
-    CheckProcessEnd() Or BringToFront() Do
+  While (
+    Launch() Or
+    WaitForIdle() Or
+    TestClass() Or
+    SendKeys() Or
+    WaitForWindow() Or
+    Wait() Or
+    CheckProcessEnd() Or
+    BringToFront() Or
+    PositionWindow() ) Do
     Begin
       MoveToNextNonCommentToken();
       CheckSymbol(';');

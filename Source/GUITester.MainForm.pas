@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.459
+  @Version 5.468
   @Date    06 Jun 2026
 
   @license
@@ -460,6 +460,7 @@ Begin
           stSendKeys:        eResult := FParserStatements.SendKeysCommand(Statement);
           stCheckProcessEnd: eResult := FParserStatements.CheckProcessEndCommand(Statement);
           stBringToFront:    eResult := FParserStatements.BringToFront(Statement);
+          stPositionWindow:  eResult := FParserStatements.PositionWindow(Statement);
         Else
           Raise EGTParserException.CreateFmt(strStmtTypeNotImpl, [
             GetEnumName(TypeInfo(TGTStatementType), Ord(Statement.StatementType))

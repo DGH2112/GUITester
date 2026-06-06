@@ -19,7 +19,7 @@ CompileWithBRCC32=0
 MajorVer=1
 MinorVer=0
 ReleaseVer=0
-BuildVer=60
+BuildVer=68
 ResourceName=ITHVerInfo
 WarnBefore=0
 WarnAfter=0
@@ -28,7 +28,7 @@ SaveModifiedFilesBeforeZipping=0
 [VersionInfo]
 CompanyName=David Hoyle
 FileDescription=An application to test GUI applications in Windows.
-FileVersion=1.0.0.60
+FileVersion=1.0.0.68
 InternalName=GUITester
 LegalCopyright=David Hoyle
 LegalTrademarks=David Hoyle
