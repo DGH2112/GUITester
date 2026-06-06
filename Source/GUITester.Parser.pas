@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 2.952
+  @Version 2.981
   @Date    06 Jun 2026
 
   @license
@@ -749,11 +749,18 @@ Begin
   Result := CompareText(strSENDKEYS, Token.FText) = 0;
   If Not Result Then
     Exit;
-  T := Token;
+  Statement := Add(stSendKeys, Token().FLine);
   ExtendedKeys := TCollections.CreateList<TGTToken>;
   MoveToNextNonCommentToken();;
   CheckSymbol('(');
   MoveToNextNonCommentToken();
+  // Class Name
+  CheckString();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  // Extended Keys
   CheckSymbol('[');
   MoveToNextNonCommentToken();
   While IsTokenIn(strExtendedKeys) Do
@@ -768,6 +775,7 @@ Begin
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();
+  // Text or a Character
   SendKeysString := Token;
   If SendKeysString.FText = '#' Then
     Begin
@@ -777,7 +785,6 @@ Begin
       CheckString();
   MoveToNextNonCommentToken();
   CheckSymbol(')');
-  Statement := Add(stSendKeys, T.FLine);
   Statement.AddParameter(SendKeysString);
   For T In ExtendedKeys Do
     Statement.AddParameter(T);

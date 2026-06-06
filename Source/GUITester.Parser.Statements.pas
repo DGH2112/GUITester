@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 1.731
+  @Version 2.524
   @Author  David Hoyle
   @Date    06 Jun 2026
   
@@ -67,11 +67,16 @@ Type
 
 Implementation
 
-Uses
+uses
+  Winapi.Messages,
   System.SysUtils,
   System.Classes,
   System.Diagnostics,
   GUITester.Functions;
+
+ResourceString
+  (** A resource string message for not being able to find a window with a specific class name. **)
+  strWindowNotFound = 'Window with class name "%s" was not found!';
 
 (**
 
@@ -85,9 +90,6 @@ Uses
 
 **)
 Function TGTParserStatements.BringToFront(Const Statement: IGTStatement): TGTTestStatus;
-
-ResourceString
-  strWindowNotFound = 'Window "%S" not found!';
 
 Var
   iWnd: HWND;
@@ -279,9 +281,6 @@ End;
 **)
 Function TGTParserStatements.PositionWindow(Const Statement: IGTStatement): TGTTestStatus;
 
-ResourceString
-  strWindowNotFound = 'Window "%S" not found!';
-
 Const
   iTopParam = 1;
   iLeftParam = 2;
@@ -334,8 +333,40 @@ Const
   strALTKey = 'ALT';
   iLowByte = $00FF;
 
+  Procedure SendKeys(Const iWnd : HWND; Const Msg : UINT; Const wParam : WPARAM);
+
+  Var
+    Inputs: TInput;
+
+  Begin
+    //Case Msg Of
+    //  WM_KEYDOWN: keybd_event(wParam, 0, 0, 0);
+    //  WM_KEYUP:   keybd_event(wParam, 0, KEYEVENTF_KEYUP, 0);
+    //End;  
+    ZeroMemory(@Inputs, SizeOf(Inputs));
+    Case Msg Of
+      WM_KEYDOWN:
+        Begin
+          Inputs.Itype := INPUT_KEYBOARD;
+          Inputs.ki.wVk := wParam;
+          Inputs.ki.dwFlags := 0;
+        End;
+      WM_KEYUP:
+        Begin
+          Inputs.Itype := INPUT_KEYBOARD;
+          Inputs.ki.wVk := wParam;
+          Inputs.ki.dwFlags := KEYEVENTF_KEYUP;
+        End;
+    End;
+    SendInput(1, Inputs, SizeOf(TInput));
+  End;
+
+ResourceString
+  strDoesNotHaveInput = 'The window "%s" does not have input (%s)!';
+
 Var
   i: Integer;
+  iWnd : HWND;
   iParameter: Integer;
   iResult : Short;
   ShiftStates : TShiftState;
@@ -344,39 +375,50 @@ Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
   FEditorUpdateEvent(Statement.Line, tsRunning);
   ShiftStates := [];
-  // Find Shift States - Start at 1 as parameter 0 is the text to output.
-  For iParameter := 1 To Statement.ParameterCount -1 Do
-    If CompareText(Statement.Parameter[iParameter].FText, strCTRLKey) = 0 Then
-      Include(ShiftStates, ssCtrl)
-    Else If CompareText(Statement.Parameter[iParameter].FText, strSHIFTKey) = 0 Then
-      Include(ShiftStates, ssShift)
-    Else If CompareText(Statement.Parameter[iParameter].FText, strALTKey) = 0 Then
-      Include(ShiftStates, ssAlt);
-  // Extended keys down
-  If ssCtrl In ShiftStates Then
-    keybd_event(VK_CONTROL, 0, 0, 0);
-  If ssShift In ShiftStates Then
-    keybd_event(VK_SHIFT, 0, 0, 0);
-  If ssAlt In ShiftStates Then
-    keybd_event(VK_MENU, 0, 0, 0);
-  // Key strokes
-  For i := 1 To Statement.Parameter[0].FText.Length Do
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  If iWnd > 0 Then
     Begin
-      iResult := VkKeyScan(Statement.Parameter[0].FText[i]);
-      If iResult > -1 Then
+      If GetForegroundWindow <> iWnd Then
+        Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].FText.DeQuotedString,
+          TGTFunctions.WindowClassName(GetForegroundWindow)]);
+      // Find Shift States - Start at 1 as parameter 0 is the text to output.
+      For iParameter := 1 To Statement.ParameterCount -1 Do
+        If CompareText(Statement.Parameter[iParameter].FText, strCTRLKey) = 0 Then
+          Include(ShiftStates, ssCtrl)
+        Else If CompareText(Statement.Parameter[iParameter].FText, strSHIFTKey) = 0 Then
+          Include(ShiftStates, ssShift)
+        Else If CompareText(Statement.Parameter[iParameter].FText, strALTKey) = 0 Then
+          Include(ShiftStates, ssAlt);
+      // Extended keys down
+      If ssCtrl In ShiftStates Then
+        SendKeys(iWnd, WM_KEYDOWN, VK_CONTROL);
+      If ssShift In ShiftStates Then
+        SendKeys(iWnd, WM_KEYDOWN, VK_SHIFT);
+      If ssAlt In ShiftStates Then
+        SendKeys(iWnd, WM_KEYDOWN, VK_MENU);
+      // Key strokes
+      For i := 1 To Statement.Parameter[1].FText.Length Do
         Begin
-          keybd_event(iResult And iLowByte, 0, 0, 0);
-          keybd_event(iResult And iLowByte, 0, KEYEVENTF_KEYUP, 0);
+          iResult := VkKeyScan(Statement.Parameter[1].FText[i]);
+          If iResult > -1 Then
+            Begin
+              SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte);
+              SendKeys(iWnd, WM_KEYUP, iResult And iLowByte);
+            End;
         End;
-    End;
-  // Extended keys up
-  If ssAlt In ShiftStates Then
-    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
-  If ssShift In ShiftStates Then
-    keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
-  If ssCtrl In ShiftStates Then
-    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-  Result := tsSuccessful;
+      // Extended keys up
+      If ssAlt In ShiftStates Then
+        SendKeys(iWnd, WM_KEYUP, VK_CONTROL);
+      If ssShift In ShiftStates Then
+        SendKeys(iWnd, WM_KEYUP, VK_SHIFT);
+      If ssCtrl In ShiftStates Then
+        SendKeys(iWnd, WM_KEYUP, VK_MENU);
+      Result := tsSuccessful;
+      End Else
+      Begin
+        Result := tsFailure;
+        FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
+      End;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 

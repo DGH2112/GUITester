@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.468
+  @Version 5.474
   @Date    06 Jun 2026
 
   @license
@@ -203,6 +203,7 @@ Begin
         OutputEvent('*'#13#10, []);
         OutputEvent(strException, [E.Message]);
         OutputEvent('*'#13#10, []);
+        EditorUpdateEvent(Parser.Line, tsFailure);
       End;
   End;
 End;

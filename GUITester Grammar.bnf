@@ -4,7 +4,7 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.238
+  @Version 1.243
   @Date    06 Jun 2026
 
   @usesemicolon
@@ -57,7 +57,8 @@
 
 <TestClass>       ::= 'TESTCLASS' '(' <StringLiteral> ')';
 
-<SendKeys>        ::= 'SENDKEYS' '(' '[' [ <StringList> ] ']' ',' ( <StringLiteral> | <Character> ) ')';
+<SendKeys>        ::= 'SENDKEYS' '(' <StringLiteral> ',' '[' [ <StringList> ] ']' ','
+                         ( <StringLiteral> | <Character> ) ')';
 
 <WaitForWindow>   ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')';
 
