@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 3.426
+  @Version 3.606
   @Date    06 Jun 2026
 
   @license
@@ -114,8 +114,7 @@ Type
     Procedure OutputEvent(Const strMsg : String; Const Args : Array Of Const);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
-    Function  StartProcess(Const StartupInfo : TStartupInfo;
-      Var GTProcessInfo : TGTProcessInfo) : TGTTestStatus;
+    Procedure StartProcess(Const StartupInfo : TStartupInfo; Var GTProcessInfo : TGTProcessInfo);
     // Statements
     Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
@@ -139,17 +138,8 @@ uses
   CodeSiteLogging,
   Spring,
   GUITester.Parser,
-  SynDWrite;
-
-Type
-  (** A record to encapsulate functions that wrap windows functions and convert them to simple Object
-      Pascal methods. **)
-  TGTFunctions = Record
-  Strict Private
-  Public
-    Class Function WindowClassName(Const wHnd: THandle): String; Static;
-    Class Function WindowText(Const wHnd: THandle): String; Static;
-  End;
+  SynDWrite,
+  GUITester.Functions;
 
 Const
   (** A constant to define the Setup section of the INI File. **)
@@ -171,62 +161,11 @@ Const
 
 (**
 
-  This method returns the windows class name for the given window handle.
-
-  @precon  None.
-  @postcon The window class name for the given window handle is returned.
-
-  @param   wHnd as a THandle as a constant
-  @return  a String
-
-**)
-Class Function TGTFunctions.WindowClassName(Const wHnd: THandle): String;
-
-Const
-  iBufferLen = 256;
-
-Var
-  iLen: Integer;
-
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WindowClassName', tmoTiming);{$ENDIF}
-  Result := StringOfChar(#0, iBufferLen);
-  iLen := GetClassName(WHnd, PChar(Result), iBufferLen);
-  SetLength(Result, iLen);
-End;
-
-(**
-
-  This method returns the windows text for the given window handle.
-
-  @precon  None.
-  @postcon The window text for the given window handle is returned.
-
-  @param   wHnd as a THandle as a constant
-  @return  a String
-
-**)
-Class Function TGTFunctions.WindowText(Const wHnd: THandle): String;
-
-Const
-  iBufferLen = 256;
-
-Var
-  iLen: Integer;
-
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WindowText', tmoTiming);{$ENDIF}
-  Result := StringOfChar(#0, iBufferLen);
-  iLen := GetWindowText(WHnd, PChar(Result), iBufferLen);
-  SetLength(Result, iLen);
-End;
-(**
-
   This method gets the top level window handle for the process ID passed in the lParam record and
   returns the window handle in the same lParam record.
 
   @precon  lParam
-  @postcon If the window is found it is returns in the record passed visa the lParam.
+  @postcon If the window is found it is returns in the record passed via the lParam.
 
   @nocheck MissingCONSTInParam
 
@@ -514,7 +453,7 @@ Begin
     seCommands.Update;
     SetupStartupInfo(StartupInfo);
     CaptureCommaneLine(Statement);
-    Result := StartProcess(StartupInfo, GTProcessInfo);
+    StartProcess(StartupInfo, GTProcessInfo);
     // Check we found the main window
     If GTProcessInfo.FWndHnd > 0 Then
       Begin
@@ -912,11 +851,10 @@ End;
 
   @param   StartupInfo   as a TStartupInfo as a constant
   @param   GTProcessInfo as a TGTProcessInfo as a reference
-  @return  a TGTTestStatus
 
 **)
-Function TfrmTestGUIMainForm.StartProcess(Const StartupInfo: TStartupInfo;
-  Var GTProcessInfo : TGTProcessInfo) : TGTTestStatus;
+Procedure TfrmTestGUIMainForm.StartProcess(Const StartupInfo: TStartupInfo;
+  Var GTProcessInfo : TGTProcessInfo);
 
 ResourceString
   strProcessHandle = 'Process Handle: %d';
@@ -932,7 +870,6 @@ Var
   Timer : TStopwatch;
 
 Begin
-  Result := tsRunning;
   boolResult := CreateProcess(
     PChar(FExecutable),  {Executable}
     PChar(FCommandLine), {Commandline}
@@ -951,7 +888,6 @@ Begin
   OutputEvent(strProcess, [FExecutable]);
   If Not boolResult Then
     Begin
-      Result := tsFailure;
       FLastCommandError := SysErrorMessage(GetLastError);
       EGTException.Create(FLastCommandError);
     End;
@@ -1084,7 +1020,7 @@ Begin
   iStart := GetTickCount64;
   WindowPlacement.showCmd := SW_HIDE;
   Repeat
-    iWnd := FindWindow(PChar(Statement.Parameter[0].FText.DeQuotedString), Nil);
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
     If iWnd > 0 Then
       GetWindowPlacement(iWnd, WindowPlacement);
     Sleep(iDefaultWaitInterval);

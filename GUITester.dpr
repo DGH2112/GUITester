@@ -45,7 +45,8 @@ uses
   GUITester.MainForm in 'Source\GUITester.MainForm.pas' {frmTestGUIMainForm},
   GUITester.Interfaces in 'Source\GUITester.Interfaces.pas',
   GUITester.Parser in 'Source\GUITester.Parser.pas',
-  GUITester.Statement in 'Source\GUITester.Statement.pas';
+  GUITester.Statement in 'Source\GUITester.Statement.pas',
+  GUITester.Functions in 'Source\GUITester.Functions.pas';
 
 {$R *.res}
 
