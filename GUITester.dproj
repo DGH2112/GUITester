@@ -114,6 +114,7 @@
         <DCCReference Include="Source\GUITester.Parser.pas"/>
         <DCCReference Include="Source\GUITester.Statement.pas"/>
         <DCCReference Include="Source\GUITester.Functions.pas"/>
+        <DCCReference Include="Source\GUITester.Parser.Statements.pas"/>
         <None Include="GUITester Grammar.bnf"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 3.606
+  @Version 5.394
   @Date    06 Jun 2026
 
   @license
@@ -60,15 +60,6 @@ Uses
   GUITester.Interfaces, Vcl.ExtCtrls;
 
 Type
-  (** A record to pass to the ENUMWINDOW call back functions to send a Process ID and return a window
-      handle. **)
-  TGTProcessInfo = Record
-    FProcessID : Cardinal;
-    FWndHnd    : THandle;
-  End;
-  (** A pointer to the above structure. **)
-  PGTProcessInfo = ^TGTProcessInfo;
-
   (** A class which represents a form displaying the GUI Tester. **)
   TfrmTestGUIMainForm = Class(TForm)
     seCommands: TSynEdit;
@@ -92,18 +83,10 @@ Type
     procedure seCommandsTSynGutterBands5PaintLines(RT: ID2D1RenderTarget; ClipR: TRect; const FirstRow,
       LastRow: Integer; var DoDefaultPainting: Boolean);
   Strict Private
-    Type
-      (** An enumerate to define the status of a statement. **)
-      TGTTestStatus = (tsParsed, tsRunning, tsSuccessful, tsFailure);
-  Strict Private
     FCurrentFile      : String;
     FGutterImageDict  : IDictionary<Integer, Integer>;
-    FProcessInfo      : TProcessInformation;
-    FTopLvlWindowHnd  : THandle;
     FLastCommandError : String;
-    FExecutable       : String;
-    FDirectory        : String;
-    FCommandLine      : String;
+    FParserStatements : IGTParserStatements;
   Strict Protected
     Procedure LoadSettings();
     Procedure SaveSettings();
@@ -111,17 +94,9 @@ Type
     Procedure OpenFile(Const strFileName : String);
     Procedure MarkLinesWithStatements(Const Statements : IGTStatements);
     Procedure ProcessStatements(Const Statements : IGTStatements);
+    Procedure EditorUpdateEvent(Const iLine : Integer; Const eStatus : TGTTestStatus);
+    Procedure LastCommandError(Const strMsg : String);
     Procedure OutputEvent(Const strMsg : String; Const Args : Array Of Const);
-    Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
-    Procedure CaptureCommaneLine(Const Statement : IGTStatement);
-    Procedure StartProcess(Const StartupInfo : TStartupInfo; Var GTProcessInfo : TGTProcessInfo);
-    // Statements
-    Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function WaitForWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
   Public
   End;
 
@@ -139,7 +114,8 @@ uses
   Spring,
   GUITester.Parser,
   SynDWrite,
-  GUITester.Functions;
+  GUITester.Functions,
+  GUITester.Parser.Statements;
 
 Const
   (** A constant to define the Setup section of the INI File. **)
@@ -158,45 +134,6 @@ Const
 {$R *.dfm}
 
 {.$DEFINE CODESITE}
-
-(**
-
-  This method gets the top level window handle for the process ID passed in the lParam record and
-  returns the window handle in the same lParam record.
-
-  @precon  lParam
-  @postcon If the window is found it is returns in the record passed via the lParam.
-
-  @nocheck MissingCONSTInParam
-
-  @param   hWnd   as a HWND
-  @param   lParam as a LPARAM
-  @return  a BOOL
-
-**)
-Function WindowTopLvlWindow(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
-
-Var
-  iProcessID : DWORD;
-  ProcessInfo : PGTProcessInfo;
-
-Begin
-  Result := True;
-  ProcessInfo := Pointer(lParam);
-  GetWindowThreadProcessId(hWnd, iProcessID);
-  If (iProcessID = ProcessInfo.FProcessID) Then
-    Begin
-      //CodeSite.SendFmtMsg('Window Class: %s, Window Text: %s', [
-      //  TGTFunctions.WindowClassName(hWnd),
-      //  TGTFunctions.WindowText(hWnd)
-      //]);
-      If (GetWindow(hWNd, GW_OWNER) = 0) And (IsWindowVisible(hWnd)) Then
-        Begin
-          ProcessInfo.FWndHnd := hWnd;
-          Result := False;
-        End;
-    End;
-End;
 
 (**
 
@@ -268,87 +205,21 @@ End;
 
 (**
 
-  This method captures the Executable, Command Line and Directory from the given statement.
+  This method is an editor update event for the parser statements that allows the updated of the status
+  of the gutter next to the statement.
 
-  @precon  Statement must be a valid instance.
-  @postcon The Executable, Command Line and Directory captured else an exception is raised.
+  @precon  None.
+  @postcon The gutter next to the statement is updated to reflect its current test status.
 
-  @param   Statement as an IGTStatement as a constant
-
-**)
-Procedure TfrmTestGUIMainForm.CaptureCommaneLine(Const Statement : IGTStatement);
-
-ResourceString
-  strExeDoesNotExist = 'The executable file "%s" does not exist!';
-  strDirDoesNotExist = 'The directory "%s" does not exist!';
-
-Const
-  iSecondParam = 2;
-  iThirdParam = 3;
-
-Var
-  boolResult: Boolean;
-  
-Begin
-  FExecutable := Statement.Parameter[0].DequoteString;
-  boolResult := FileExists(FExecutable);
-  If Not boolResult Then
-    Raise EGTException.CreateFmt(strExeDoesNotExist, [FExecutable]);
-  // Check Directory
-  If Statement.ParameterCount >= iSecondParam Then
-    Begin
-      FDirectory := Statement.Parameter[1].DeQuoteString;
-      boolResult := DirectoryExists(FDirectory);
-      If Not boolResult Then
-        Raise EGTException.CreateFmt(strDirDoesNotExist, [FDirectory]);
-    End Else
-      FDirectory := ExtractFilePath(FExecutable);
-  // Get the Command Line
-  If Statement.ParameterCount = iThirdParam Then
-    FCommandLine := Statement.Parameter[iSecondParam].DeQuoteString;
-End;
-
-(**
-
-  This method checks that the process has terminated.
-
-  @precon  Statement must be a valid instance.
-  @postcon Waits to test whether the process has terminated.
-
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
+  @param   iLine   as an Integer as a constant
+  @param   eStatus as a TGTTestStatus as a constant
 
 **)
-Function TfrmTestGUIMainForm.CheckProcessEndCommand(Const Statement: IGTStatement): TGTTestStatus;
+Procedure TfrmTestGUIMainForm.EditorUpdateEvent(Const iLine: Integer; Const eStatus: TGTTestStatus);
 
-ResourceString
-  strWaitFailed = 'Wait failed!';
-  strWaitTimedOut = 'Wait timed out!';
-
-Var
-  iResult : Cardinal;
-  
 Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'CheckProcessEndCommand', tmoTiming);{$ENDIF}
-  Result := tsRunning;
-  FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-  iResult := WaitForSingleObject(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
-  If iResult = WAIT_OBJECT_0 Then
-    Result := tsSuccessful
-  Else If iResult = WAIT_TIMEOUT Then
-    Begin
-      Result := tsFailure;
-      FLastCommandError := strWaitTimedOut;
-    End
-  Else If iResult = WAIT_FAILED Then
-    Begin
-      Result := tsFailure;
-      FLastCommandError := strWaitFailed;
-    End;
-  FGutterImageDict[Statement.Line] := Integer(Result);
-  seCommands.InvalidateGutterLine(Statement.Line);
+  FGutterImageDict[iLine] := Integer(eStatus);
+  seCommands.InvalidateGutterLine(iLine);
   seCommands.Update;
 End;
 
@@ -380,6 +251,9 @@ begin
   shGeneral.CommentAttri.Foreground := iLightBlue;
   LoadSettings();
   seCommandsStatusChange(Self, [scAll]);
+  FParserStatements := TGTParserStatements.Create(
+    EditorUpdateEvent, LastCommandError, OutputEvent
+  )
 end;
 
 (**
@@ -424,59 +298,18 @@ End;
 
 (**
 
-  This method launches the application to be tested.
+  This is an event for capturing the last command error.
 
-  @precon  Statement must be a valid instance.
-  @postcon The application is launched.
+  @precon  None.
+  @postcon The last command error is stored for later use.
 
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
+  @param   strMsg as a String as a constant
 
 **)
-Function TfrmTestGUIMainForm.LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
-
-ResourceString
-  strTopLevelWindowHandle = 'Top Level Window Handle: %d';
-  strTopLevelWindowClass = 'Top Level Window Class: %s';
-  strTopLevelWindowText = 'Top Level Window Text: %s';
-  strTopLevelWindowHandleNotFound = 'Top Level Window Handle not found!';
-
-Var
-  StartupInfo : TStartupInfo;
-  GTProcessInfo : TGTProcessInfo;
+Procedure TfrmTestGUIMainForm.LastCommandError(Const strMsg: String);
 
 Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'LaunchCommand', tmoTiming);{$ENDIF}
-  Try
-    FGutterImageDict[Statement.Line] := Integer(tsRunning);
-    seCommands.InvalidateGutterLine(Statement.Line);
-    seCommands.Update;
-    SetupStartupInfo(StartupInfo);
-    CaptureCommaneLine(Statement);
-    StartProcess(StartupInfo, GTProcessInfo);
-    // Check we found the main window
-    If GTProcessInfo.FWndHnd > 0 Then
-      Begin
-        Result := tsSuccessful;
-        FTopLvlWindowHnd := GTPRocessInfo.FWndHnd;
-        OutputEvent(strTopLevelWindowHandle, [FTopLvlWindowHnd]);
-        OutputEvent(strTopLevelWindowClass, [TGTFunctions.WindowClassName(FTopLvlWindowHnd)]);
-        OutputEvent(strTopLevelWindowText, [TGTFunctions.WindowText(FTopLvlWindowHnd)]);
-      End Else
-      Begin
-        Result := tsFailure;
-        FLastCommandError := strTopLevelWindowHandleNotFound;
-      End;
-  Except
-    On E : EGTException Do
-      Begin
-        Result := tsFailure;
-        FLastCommandError := E.Message;
-      End;
-  End;
-  FGutterImageDict[Statement.Line] := Integer(Result);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
+  FLastCommandError := strMsg;
 End;
 
 (**
@@ -615,12 +448,12 @@ Begin
         Statement := Statements.Statement[i];
         seCommands.TopLine := Statement.Line - (seCommands.LinesInWindow Div 2);
         Case Statement.StatementType Of
-          stLaunch:          eResult := LaunchCommand(Statement);
-          stWaitForIdle:     eResult := WaitForIdleCommand(Statement);
-          stWaitForWindow:   eResult := WaitForWindowCommand(Statement);
-          stWait:            eResult := WaitCommand(Statement);
-          stSendKeys:        eResult := SendKeysCommand(Statement);
-          stCheckProcessEnd: eResult := CheckProcessEndCommand(Statement);
+          stLaunch:          eResult := FParserStatements.LaunchCommand(Statement);
+          stWaitForIdle:     eResult := FParserStatements.WaitForIdleCommand(Statement);
+          stWaitForWindow:   eResult := FParserStatements.WaitForWindowCommand(Statement);
+          stWait:            eResult := FParserStatements.WaitCommand(Statement);
+          stSendKeys:        eResult := FParserStatements.SendKeysCommand(Statement);
+          stCheckProcessEnd: eResult := FParserStatements.CheckProcessEndCommand(Statement);
         Else
           eResult := tsFailure;
         End;
@@ -741,301 +574,6 @@ Begin
       If FGutterImageDict.TryGetValue(iLine, iImgIndex) Then
         ImageListDraw(RT, ilGutterStatus, ClipR.Left, iY, iImgIndex);
     End;
-End;
-
-(**
-
-  This method sends a stream of characters to the applications input method.
-
-  @precon  Statement must be a valid instance.
-  @postcon The characters are sent to the window.
-
-  @todo    Change to use SendMessageWithTimeOut()
-
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
-
-**)
-Function TfrmTestGUIMainForm.SendKeysCommand(Const Statement: IGTStatement): TGTTestStatus;
-
-Const
-  strCTRLKey = 'CTRL';
-  strSHIFTKey = 'SHIFT';
-  strALTKey = 'ALT';
-  iLowByte = $00FF;
-
-Var
-  i: Integer;
-  iParameter: Integer;
-  iResult : Short;
-  ShiftStates : TShiftState;
-
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
-  FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-  ShiftStates := [];
-  // Find Shift States - Start at 1 as parameter 0 is the text to output.
-  For iParameter := 1 To Statement.ParameterCount -1 Do
-    If CompareText(Statement.Parameter[iParameter].FText, strCTRLKey) = 0 Then
-      Include(ShiftStates, ssCtrl)
-    Else If CompareText(Statement.Parameter[iParameter].FText, strSHIFTKey) = 0 Then
-      Include(ShiftStates, ssShift)
-    Else If CompareText(Statement.Parameter[iParameter].FText, strALTKey) = 0 Then
-      Include(ShiftStates, ssAlt);
-  // Extended keys down
-  If ssCtrl In ShiftStates Then
-    keybd_event(VK_CONTROL, 0, 0, 0);
-  If ssShift In ShiftStates Then
-    keybd_event(VK_SHIFT, 0, 0, 0);
-  If ssAlt In ShiftStates Then
-    keybd_event(VK_MENU, 0, 0, 0);
-  // Key strokes
-  For i := 1 To Statement.Parameter[0].FText.Length Do
-    Begin
-      iResult := VkKeyScan(Statement.Parameter[0].FText[i]);
-      If iResult > -1 Then
-        Begin
-          keybd_event(iResult And iLowByte, 0, 0, 0);
-          keybd_event(iResult And iLowByte, 0, KEYEVENTF_KEYUP, 0);
-        End;
-    End;
-  // Extended keys up
-  If ssAlt In ShiftStates Then
-    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
-  If ssShift In ShiftStates Then
-    keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
-  If ssCtrl In ShiftStates Then
-    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-  Result := tsSuccessful;
-  FGutterImageDict[Statement.Line] := Integer(Result);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-End;
-
-(**
-
-  This method initialises the the given StartUpInfo record so it can be used to create a process.
-
-  @precon  None.
-  @postcon The StartUpInfo record is initialised.
-
-  @param   StartupInfo as a TStartupInfo as a reference
-
-**)
-Procedure TfrmTestGUIMainForm.SetupStartupInfo(Var StartupInfo : TStartupInfo);
-
-Const
-  iPipeBufferSize = 4096;
-
-Var
-  hRead, hWrite : THandle;
-  
-Begin
-    Win32Check(CreatePipe(hRead, hWrite, Nil, iPipeBufferSize));
-    FillChar(StartupInfo, SizeOf(TStartupInfo), 0);
-    StartupInfo.cb := SizeOf(TStartupInfo);
-    StartupInfo.dwFlags     := STARTF_USESHOWWINDOW or STARTF_USESTDHANDLES;
-    StartupInfo.wShowWindow := SW_HIDE;
-    StartupInfo.hStdOutput  := hWrite;
-    StartupInfo.hStdError   := hWrite;
-End;
-
-(**
-
-  This method starts the GUI Application process to be tested.
-
-  @precon  None.
-  @postcon The GUI Application is started and application main window attempted to be captured.
-
-  @param   StartupInfo   as a TStartupInfo as a constant
-  @param   GTProcessInfo as a TGTProcessInfo as a reference
-
-**)
-Procedure TfrmTestGUIMainForm.StartProcess(Const StartupInfo: TStartupInfo;
-  Var GTProcessInfo : TGTProcessInfo);
-
-ResourceString
-  strProcessHandle = 'Process Handle: %d';
-  strProcessID = 'Process ID: %d';
-  strProcess = 'Process: %s';
-
-Const
-  iWaitLoopInterval = 250;
-  iMaxWaitTimeForAppStartup = 10000;
-
-Var
-  boolResult : LongBool;
-  Timer : TStopwatch;
-
-Begin
-  boolResult := CreateProcess(
-    PChar(FExecutable),  {Executable}
-    PChar(FCommandLine), {Commandline}
-    Nil,                 {ProcessAttr}
-    Nil,                 {ThreadAttr}
-    True,                {InheritHandle}
-    0,                   {CreationFlags}
-    Nil,                 {Environment}
-    PChar(FDirectory),   {Directory}
-    StartupInfo,         {StartupInfo}
-    FProcessInfo         {ProcessInfo}
-  );        
-  WaitForInputIdle(FProcessInfo.hProcess, iMaxWaitTimeForAppStartup);
-  OutputEvent(strProcessHandle, [FProcessInfo.hProcess]);
-  OutputEvent(strProcessID, [FProcessInfo.dwProcessId]);
-  OutputEvent(strProcess, [FExecutable]);
-  If Not boolResult Then
-    Begin
-      FLastCommandError := SysErrorMessage(GetLastError);
-      EGTException.Create(FLastCommandError);
-    End;
-  // Try and find the Main Window for 5000 milliseconds
-  GTProcessInfo.FProcessID := FProcessInfo.dwProcessId;
-  GTProcessInfo.FWndHnd := 0;
-  Timer := TStopwatch.Create;
-  TIMer.Start;
-  Repeat
-    Sleep(iWaitLoopInterval);
-    EnumWindows(@WindowTopLvlWindow, LPARAM(@GTProcessInfo));
-  Until (GTProcessInfo.FWndHnd > 0) Or (Timer.ElapsedMilliseconds > iMaxWaitTimeForAppStartup);
-  Timer.Stop;
-End;
-
-(**
-
-  This method waits for the specified period of time in the statements first parameter in milliseconds.
-
-  @precon  Statement must be a valid instance.
-  @postcon The method waits a period of time in milliseconds.
-
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
-
-**)
-Function TfrmTestGUIMainForm.WaitCommand(Const Statement: IGTStatement): TGTTestStatus;
-
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitCommand', tmoTiming);{$ENDIF}
-  FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-  Sleep(Statement.Parameter[0].AsInteger);
-  Result := tsSuccessful;
-  FGutterImageDict[Statement.Line] := Integer(Result);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-End;
-
-(**
-
-  This method attempts to wait for the test application to become idle. This method uses the first
-  parameter of the statement as a wait time in milliseconds.
-
-  @precon  Statement must be a valid instance.
-  @postcon The method waits for the process to be idle before continuing.
-
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
-
-**)
-Function TfrmTestGUIMainForm.WaitForIdleCommand(Const Statement: IGTStatement): TGTTestStatus;
-
-ResourceString
-  strWaitTimedOut = 'Wait timed out!';
-  strWaitFailed = 'Wait Failed!';
-
-Var
-  iResult : Cardinal;
-
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForIdleCommand', tmoTiming);{$ENDIF}
-  Result := tsRunning;
-  FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-  iResult := WaitForInputIdle(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
-  {
-  EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL
-  BEGIN
-    DWORD pid = 0;
-    GetWindowThreadProcessId(hWnd, &pid);
-    if (pid == (DWORD)lParam && IsWindowVisible(hWnd) && GetWindow(hWnd, GW_OWNER) == NULL) THEN
-      BEGIN
-        // candidate for "main" window
-      END
-      return TRUE;
-  END, (LPARAM)pi.dwProcessId);
-  }
-  If iResult = 0 Then
-    Result := tsSuccessful
-  Else If iResult = WAIT_TIMEOUT Then
-    Begin
-      Result := tsFailure;
-      FLastCommandError := strWaitTimedOut;
-    End
-  Else If iResult = WAIT_FAILED Then
-    Begin
-      Result := tsFailure;
-      FLastCommandError := strWaitFailed;
-    End;
-  FGutterImageDict[Statement.Line] := Integer(Result);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-End;
-
-(**
-
-  This method attempts to wait for a top level window with the name provided by the parameter of the
-  given statement. It looks not only for the window but also that the window is either showing NORMAL or
-  MAZIMIZED.
-
-  @precon  Statement must be a valid statement with 2 parameters: first the window name and; second the
-           wait time in milliseconds.
-  @postcon The method attempts to find the window and wait for it to be displayed else returns as failed.
-
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
-
-**)
-Function TfrmTestGUIMainForm.WaitForWindowCommand(Const Statement: IGTStatement): TGTTestStatus;
-
-ResourceString
-  strWaitTimedOut = 'Wait timed out!';
-
-Const
-  iDefaultWaitInterval = 100;
-
-Var
-  iWnd : THandle;
-  iStart : UINt64;
-  WindowPLacement : TWindowPlacement;
-  
-Begin
-  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForWindowCommand', tmoTiming);{$ENDIF}
-  FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
-  iStart := GetTickCount64;
-  WindowPlacement.showCmd := SW_HIDE;
-  Repeat
-    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
-    If iWnd > 0 Then
-      GetWindowPlacement(iWnd, WindowPlacement);
-    Sleep(iDefaultWaitInterval);
-  Until ((iWnd > 0) And (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE])) Or
-    (GetTickCount64 - iStart > Statement.Parameter[1].AsInteger);
-  If iWnd > 0 Then
-    Result := tsSuccessful
-  Else
-    Begin
-      Result := tsFailure;
-      FLastCommandError := strWaitTimedOut;
-    End;
-  FGutterImageDict[Statement.Line] := Integer(Result);
-  seCommands.InvalidateGutterLine(Statement.Line);
-  seCommands.Update;
 End;
 
 End.

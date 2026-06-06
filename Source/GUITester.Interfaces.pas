@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 1.561
-  @Date    14 May 2026
+  @Version 1.646
+  @Date    06 Jun 2026
 
   @license
 
@@ -181,6 +181,23 @@ Type
       @return  an IGTStatement
     **)
     Property Statement[Const iIndex  :Integer] : IGTStatement Read GetStatement; Default;
+  End;
+
+  (** An enumerate to define the status of a statement. **)
+  TGTTestStatus = (tsParsed, tsRunning, tsSuccessful, tsFailure);
+
+  (** An interface for the statements that the GUI Tester can execute. **)
+  IGTParserStatements = Interface
+  ['{EAA95898-3E8E-4264-A627-75034F762CDF}']
+    // Getters and Setters
+    // Methods
+    Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function WaitForWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    // Properties
   End;
 
   (** A root exception for all exceptions raised by the application. **)
