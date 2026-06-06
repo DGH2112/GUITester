@@ -3,8 +3,8 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 1.791
-  @Date    03 Jun 2026
+  @Version 3.426
+  @Date    06 Jun 2026
 
   @license
 
@@ -57,9 +57,18 @@ Uses
   SynEditHighlighter,
   SynHighlighterGeneral,
   SynEditMiscClasses,
-  GUITester.Interfaces;
+  GUITester.Interfaces, Vcl.ExtCtrls;
 
 Type
+  (** A record to pass to the ENUMWINDOW call back functions to send a Process ID and return a window
+      handle. **)
+  TGTProcessInfo = Record
+    FProcessID : Cardinal;
+    FWndHnd    : THandle;
+  End;
+  (** A pointer to the above structure. **)
+  PGTProcessInfo = ^TGTProcessInfo;
+
   (** A class which represents a form displaying the GUI Tester. **)
   TfrmTestGUIMainForm = Class(TForm)
     seCommands: TSynEdit;
@@ -72,6 +81,8 @@ Type
     actFileParseAndRun: TAction;
     StatusBar1: TStatusBar;
     ilGutterStatus: TImageList;
+    seOutput: TSynEdit;
+    Splitter1: TSplitter;
     procedure actFileOpenExecute(Sender: TObject);
     procedure actFileParseAndRunExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -88,7 +99,11 @@ Type
     FCurrentFile      : String;
     FGutterImageDict  : IDictionary<Integer, Integer>;
     FProcessInfo      : TProcessInformation;
+    FTopLvlWindowHnd  : THandle;
     FLastCommandError : String;
+    FExecutable       : String;
+    FDirectory        : String;
+    FCommandLine      : String;
   Strict Protected
     Procedure LoadSettings();
     Procedure SaveSettings();
@@ -96,6 +111,11 @@ Type
     Procedure OpenFile(Const strFileName : String);
     Procedure MarkLinesWithStatements(Const Statements : IGTStatements);
     Procedure ProcessStatements(Const Statements : IGTStatements);
+    Procedure OutputEvent(Const strMsg : String; Const Args : Array Of Const);
+    Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
+    Procedure CaptureCommaneLine(Const Statement : IGTStatement);
+    Function  StartProcess(Const StartupInfo : TStartupInfo;
+      Var GTProcessInfo : TGTProcessInfo) : TGTTestStatus;
     // Statements
     Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
@@ -121,6 +141,16 @@ uses
   GUITester.Parser,
   SynDWrite;
 
+Type
+  (** A record to encapsulate functions that wrap windows functions and convert them to simple Object
+      Pascal methods. **)
+  TGTFunctions = Record
+  Strict Private
+  Public
+    Class Function WindowClassName(Const wHnd: THandle): String; Static;
+    Class Function WindowText(Const wHnd: THandle): String; Static;
+  End;
+
 Const
   (** A constant to define the Setup section of the INI File. **)
   strSetupINISection = 'Setup';
@@ -137,6 +167,98 @@ Const
 
 {$R *.dfm}
 
+{.$DEFINE CODESITE}
+
+(**
+
+  This method returns the windows class name for the given window handle.
+
+  @precon  None.
+  @postcon The window class name for the given window handle is returned.
+
+  @param   wHnd as a THandle as a constant
+  @return  a String
+
+**)
+Class Function TGTFunctions.WindowClassName(Const wHnd: THandle): String;
+
+Const
+  iBufferLen = 256;
+
+Var
+  iLen: Integer;
+
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WindowClassName', tmoTiming);{$ENDIF}
+  Result := StringOfChar(#0, iBufferLen);
+  iLen := GetClassName(WHnd, PChar(Result), iBufferLen);
+  SetLength(Result, iLen);
+End;
+
+(**
+
+  This method returns the windows text for the given window handle.
+
+  @precon  None.
+  @postcon The window text for the given window handle is returned.
+
+  @param   wHnd as a THandle as a constant
+  @return  a String
+
+**)
+Class Function TGTFunctions.WindowText(Const wHnd: THandle): String;
+
+Const
+  iBufferLen = 256;
+
+Var
+  iLen: Integer;
+
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WindowText', tmoTiming);{$ENDIF}
+  Result := StringOfChar(#0, iBufferLen);
+  iLen := GetWindowText(WHnd, PChar(Result), iBufferLen);
+  SetLength(Result, iLen);
+End;
+(**
+
+  This method gets the top level window handle for the process ID passed in the lParam record and
+  returns the window handle in the same lParam record.
+
+  @precon  lParam
+  @postcon If the window is found it is returns in the record passed visa the lParam.
+
+  @nocheck MissingCONSTInParam
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function WindowTopLvlWindow(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+Var
+  iProcessID : DWORD;
+  ProcessInfo : PGTProcessInfo;
+
+Begin
+  Result := True;
+  ProcessInfo := Pointer(lParam);
+  GetWindowThreadProcessId(hWnd, iProcessID);
+  If (iProcessID = ProcessInfo.FProcessID) Then
+    Begin
+      //CodeSite.SendFmtMsg('Window Class: %s, Window Text: %s', [
+      //  TGTFunctions.WindowClassName(hWnd),
+      //  TGTFunctions.WindowText(hWnd)
+      //]);
+      If (GetWindow(hWNd, GW_OWNER) = 0) And (IsWindowVisible(hWnd)) Then
+        Begin
+          ProcessInfo.FWndHnd := hWnd;
+          Result := False;
+        End;
+    End;
+End;
+
 (**
 
   This is an on execute event handler for the File Open action.
@@ -150,6 +272,7 @@ Const
 Procedure TfrmTestGUIMainForm.actFileOpenExecute(Sender: TObject);
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'actFileOpenExecute', tmoTiming);{$ENDIF}
   If dlgOpen.Execute(Self.Handle) Then
     OpenFile(dlgOpen.FileName);
 End;
@@ -168,29 +291,82 @@ Procedure TfrmTestGUIMainForm.actFileParseAndRunExecute(Sender: TObject);
 
 ResourceString
   strOkay = 'Okay';
+  strException = '* Exception: %s';
 
 Var
   Parser : IGTParser;
   Statements : IGTStatements;
 
 Begin
-  seCommands.Indicators.Clear;
-  Parser := TGTParser.Create();
-  Parser.Parse(seCommands.Lines.Text);
-  If Parser.LastError <> '' Then
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'actFileParseAndRunExecute', tmoTiming);{$ENDIF}
+  Try
+    seCommands.Indicators.Clear;
+    Parser := TGTParser.Create();
+    Parser.Parse(seCommands.Lines.Text);
+    If Parser.LastError <> '' Then
+      Begin
+        StatusBar1.Panels[1].Text := Parser.LastError;
+        seCommands.CaretY := Parser.Line;
+        seCommands.CaretX := Parser.Column;
+      End Else
+        StatusBar1.Panels[1].Text := strOkay;
+    If Supports(Parser, IGTStatements, Statements) Then
+      Begin
+        MarkLinesWithStatements(Statements);
+        If Parser.LastError <> '' Then
+          Exit;
+        ProcessStatements(Statements);
+      End;
+  Except
+    On E : EGTException Do
+      Begin
+        OutputEvent('*'#13#10, []);
+        OutputEvent(strException, [E.Message]);
+        OutputEvent('*'#13#10, []);
+      End;
+  End;
+End;
+
+(**
+
+  This method captures the Executable, Command Line and Directory from the given statement.
+
+  @precon  Statement must be a valid instance.
+  @postcon The Executable, Command Line and Directory captured else an exception is raised.
+
+  @param   Statement as an IGTStatement as a constant
+
+**)
+Procedure TfrmTestGUIMainForm.CaptureCommaneLine(Const Statement : IGTStatement);
+
+ResourceString
+  strExeDoesNotExist = 'The executable file "%s" does not exist!';
+  strDirDoesNotExist = 'The directory "%s" does not exist!';
+
+Const
+  iSecondParam = 2;
+  iThirdParam = 3;
+
+Var
+  boolResult: Boolean;
+  
+Begin
+  FExecutable := Statement.Parameter[0].DequoteString;
+  boolResult := FileExists(FExecutable);
+  If Not boolResult Then
+    Raise EGTException.CreateFmt(strExeDoesNotExist, [FExecutable]);
+  // Check Directory
+  If Statement.ParameterCount >= iSecondParam Then
     Begin
-      StatusBar1.Panels[1].Text := Parser.LastError;
-      seCommands.CaretY := Parser.Line;
-      seCommands.CaretX := Parser.Column;
+      FDirectory := Statement.Parameter[1].DeQuoteString;
+      boolResult := DirectoryExists(FDirectory);
+      If Not boolResult Then
+        Raise EGTException.CreateFmt(strDirDoesNotExist, [FDirectory]);
     End Else
-      StatusBar1.Panels[1].Text := strOkay;
-  If Supports(Parser, IGTStatements, Statements) Then
-    Begin
-      MarkLinesWithStatements(Statements);
-      If Parser.LastError <> '' Then
-        Exit;
-      ProcessStatements(Statements);
-    End;
+      FDirectory := ExtractFilePath(FExecutable);
+  // Get the Command Line
+  If Statement.ParameterCount = iThirdParam Then
+    FCommandLine := Statement.Parameter[iSecondParam].DeQuoteString;
 End;
 
 (**
@@ -214,10 +390,11 @@ Var
   iResult : Cardinal;
   
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'CheckProcessEndCommand', tmoTiming);{$ENDIF}
   Result := tsRunning;
   FGutterImageDict[Statement.Line] := Integer(tsRunning);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
   iResult := WaitForSingleObject(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
   If iResult = WAIT_OBJECT_0 Then
     Result := tsSuccessful
@@ -233,7 +410,7 @@ Begin
     End;
   FGutterImageDict[Statement.Line] := Integer(Result);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
 End;
 
 (**
@@ -255,6 +432,7 @@ Const
   iLightBlue = $FFC0C0;
 
 begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'FormCreate', tmoTiming);{$ENDIF}
   FGutterImageDict := TCollections.CreateDictionary<Integer, Integer>;
   shGeneral.KeyAttri.Foreground := TColors.LightYellow;
   shGeneral.SymbolAttri.Foreground := iLightGreen;
@@ -278,6 +456,7 @@ end;
 procedure TfrmTestGUIMainForm.FormDestroy(Sender: TObject);
 
 begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'FormDestroy', tmoTiming);{$ENDIF}
   SaveSettings();
 end;
 
@@ -298,6 +477,7 @@ Const
   strAppDataEnvVar = 'appdata';
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'INIFileName', tmoTiming);{$ENDIF}
   Result := GetEnvironmentVariable(strAppDataEnvVar) + strINIFileName;
   If Not DirectoryExists(ExtractFilePath(Result)) Then
     ForceDirectories(ExtractFilePath(Result));    
@@ -317,69 +497,37 @@ End;
 Function TfrmTestGUIMainForm.LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
 
 ResourceString
-  strExeDoesNotExist = 'The executable file "%s" does not exist!';
-  strDirDoesNotExist = 'The directory "%s" does not exist!';
-
-Const
-  iPipeBufferSize = 4096;
-  iSecondParam = 2;
-  iThirdParam = 3;
+  strTopLevelWindowHandle = 'Top Level Window Handle: %d';
+  strTopLevelWindowClass = 'Top Level Window Class: %s';
+  strTopLevelWindowText = 'Top Level Window Text: %s';
+  strTopLevelWindowHandleNotFound = 'Top Level Window Handle not found!';
 
 Var
-  hRead, hWrite : THandle;
   StartupInfo : TStartupInfo;
-  boolResult : LongBool;
-  strExecutable : String;
-  strDirectory : String;
-  strCommandLine : String;
+  GTProcessInfo : TGTProcessInfo;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'LaunchCommand', tmoTiming);{$ENDIF}
   Try
     FGutterImageDict[Statement.Line] := Integer(tsRunning);
     seCommands.InvalidateGutterLine(Statement.Line);
-    Application.ProcessMessages;
-    Win32Check(CreatePipe(hRead, hWrite, Nil, iPipeBufferSize));
-    FillChar(StartupInfo, SizeOf(TStartupInfo), 0);
-    StartupInfo.cb := SizeOf(TStartupInfo);
-    StartupInfo.dwFlags     := STARTF_USESHOWWINDOW or STARTF_USESTDHANDLES;
-    StartupInfo.wShowWindow := SW_HIDE;
-    StartupInfo.hStdOutput  := hWrite;
-    StartupInfo.hStdError   := hWrite;
-    // Check Executable
-    strExecutable := Statement.Parameter[0].DequoteString;
-    boolResult := FileExists(strExecutable);
-    If Not boolResult Then
-      Raise EGTException.CreateFmt(strExeDoesNotExist, [strExecutable]);
-    // Check Directory
-    If Statement.ParameterCount >= iSecondParam Then
+    seCommands.Update;
+    SetupStartupInfo(StartupInfo);
+    CaptureCommaneLine(Statement);
+    Result := StartProcess(StartupInfo, GTProcessInfo);
+    // Check we found the main window
+    If GTProcessInfo.FWndHnd > 0 Then
       Begin
-        strDirectory := Statement.Parameter[1].DeQuoteString;
-        boolResult := DirectoryExists(strDirectory);
-        If Not boolResult Then
-          Raise EGTException.CreateFmt(strDirDoesNotExist, [strDirectory]);
+        Result := tsSuccessful;
+        FTopLvlWindowHnd := GTPRocessInfo.FWndHnd;
+        OutputEvent(strTopLevelWindowHandle, [FTopLvlWindowHnd]);
+        OutputEvent(strTopLevelWindowClass, [TGTFunctions.WindowClassName(FTopLvlWindowHnd)]);
+        OutputEvent(strTopLevelWindowText, [TGTFunctions.WindowText(FTopLvlWindowHnd)]);
       End Else
-        strDirectory := ExtractFilePath(strExecutable);
-    // Get the Command Line
-    If Statement.ParameterCount = iThirdParam Then
-      strCommandLine := Statement.Parameter[iSecondParam].DeQuoteString;
-    boolResult := CreateProcess(
-      PChar(Statement.Parameter[0].DequoteString), {Executable}
-      PChar(strCommandLine),                       {Commandline}
-      Nil,                                         {ProcessAttr}
-      Nil,                                         {ThreadAttr}
-      True,                                        {InheritHandle}
-      0,                                           {CreationFlags}
-      Nil,                                         {Environment}
-      PChar(strDirectory),                         {Directory}
-      StartupInfo,                                 {StartupInfo}
-      FProcessInfo                                 {ProcessInfo}
-    );        
-    If Not boolResult Then
       Begin
         Result := tsFailure;
-        FLastCommandError := SysErrorMessage(GetLastError);
-      End Else
-        Result := tsSuccessful;
+        FLastCommandError := strTopLevelWindowHandleNotFound;
+      End;
   Except
     On E : EGTException Do
       Begin
@@ -389,7 +537,7 @@ Begin
   End;
   FGutterImageDict[Statement.Line] := Integer(Result);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
 End;
 
 (**
@@ -406,6 +554,7 @@ Var
   iniFile : IShared<TMemIniFile>;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'LoadSettings', tmoTiming);{$ENDIF}
   iniFile := Shared.Make(TMemIniFile.Create(INIFileName));
   Left := iniFile.ReadInteger(strSetupINISection, strLeftINIKey, Left);
   Top := iniFile.ReadInteger(strSetupINISection, strTopINIKey, Top);
@@ -433,6 +582,7 @@ Var
   Statement: IGTStatement;
   
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'MarkLinesWithStatements', tmoTiming);{$ENDIF}
   FGutterImageDict.Clear;
   For i := 0 To Statements.Count - 1 Do
     Begin
@@ -440,7 +590,7 @@ Begin
       FGutterImageDict[Statement.Line] := Integer(tsParsed);
     End;
   seCommands.InvalidateGutter;
-  Application.ProcessMessages;
+  seCommands.Update;
 End;
 
 (**
@@ -459,6 +609,7 @@ ResourceString
   strErrorMsg = 'The file "%s" does not exists!';
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'OpenFile', tmoTiming);{$ENDIF}
   If seCommands.Modified And FileExists(FCurrentFile) Then
     seCommands.Lines.SaveToFile(FCurrentFile);
   If Not FileExists(strFileName) Then
@@ -470,6 +621,29 @@ Begin
   seCommands.Lines.LoadFromFile(FCurrentFile);
   seCommands.Modified := False;
   seCommands.ClearTrackChanges;
+End;
+
+(**
+
+  This method outputs the given message with the given parameters.
+
+  @precon  None.
+  @postcon Outputs the message and shows the line.
+
+  @param   strMsg as a String as a constant
+  @param   Args   as an Array Of Const as a constant
+
+**)
+Procedure TfrmTestGUIMainForm.OutputEvent(Const strMsg: String; Const Args: Array Of Const);
+
+Var
+  iLine: Integer;
+
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'OutputEvent', tmoTiming);{$ENDIF}
+  iLine := seOutput.Lines.Add(Format(strMsg, Args));
+  seOutput.GotoLineAndCenter(Succ(iLine));
+  seOutput.Update;
 End;
 
 (**
@@ -494,6 +668,7 @@ Var
   Statement : IGTStatement;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'ProcessStatements', tmoTiming);{$ENDIF}
   seCommands.ReadOnly := True;
   Try
     For i := 0 To Statements.Count - 1 Do
@@ -536,6 +711,7 @@ Var
   iniFile : IShared<TMemIniFile>;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SaveSettings', tmoTiming);{$ENDIF}
   iniFile := Shared.Make(TMemIniFile.Create(INIFileName));
   iniFile.WriteInteger(strSetupINISection, strLeftINIKey, Left);
   iniFile.WriteInteger(strSetupINISection, strTopINIKey, Top);
@@ -560,6 +736,7 @@ End;
 Procedure TfrmTestGUIMainForm.seCommandsChange(Sender: TObject);
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'seCommandsChange', tmoTiming);{$ENDIF}
   If seCommands.Modified Then
     Begin
       FGutterImageDict.Clear;
@@ -581,6 +758,7 @@ End;
 Procedure TfrmTestGUIMainForm.seCommandsStatusChange(Sender: TObject; Changes: TSynStatusChanges);
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'seCommandsStatusChange', tmoTiming);{$ENDIF}
   StatusBar1.Panels[0].Text := Format('%d : %d', [seCommands.CaretY, seCommands.CaretX]);
 End;
 
@@ -611,6 +789,7 @@ Var
   iImgIndex : Integer;
   
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'seCommandsTSynGutterBands5PaintLines', tmoTiming);{$ENDIF}
   DoDefaultPainting := False;
   iLineHeight := seCommands.LineHeight;
   For iRow := FirstRow To LastRow Do
@@ -653,9 +832,10 @@ Var
   ShiftStates : TShiftState;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
   FGutterImageDict[Statement.Line] := Integer(tsRunning);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
   ShiftStates := [];
   // Find Shift States - Start at 1 as parameter 0 is the text to output.
   For iParameter := 1 To Statement.ParameterCount -1 Do
@@ -692,7 +872,99 @@ Begin
   Result := tsSuccessful;
   FGutterImageDict[Statement.Line] := Integer(Result);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
+End;
+
+(**
+
+  This method initialises the the given StartUpInfo record so it can be used to create a process.
+
+  @precon  None.
+  @postcon The StartUpInfo record is initialised.
+
+  @param   StartupInfo as a TStartupInfo as a reference
+
+**)
+Procedure TfrmTestGUIMainForm.SetupStartupInfo(Var StartupInfo : TStartupInfo);
+
+Const
+  iPipeBufferSize = 4096;
+
+Var
+  hRead, hWrite : THandle;
+  
+Begin
+    Win32Check(CreatePipe(hRead, hWrite, Nil, iPipeBufferSize));
+    FillChar(StartupInfo, SizeOf(TStartupInfo), 0);
+    StartupInfo.cb := SizeOf(TStartupInfo);
+    StartupInfo.dwFlags     := STARTF_USESHOWWINDOW or STARTF_USESTDHANDLES;
+    StartupInfo.wShowWindow := SW_HIDE;
+    StartupInfo.hStdOutput  := hWrite;
+    StartupInfo.hStdError   := hWrite;
+End;
+
+(**
+
+  This method starts the GUI Application process to be tested.
+
+  @precon  None.
+  @postcon The GUI Application is started and application main window attempted to be captured.
+
+  @param   StartupInfo   as a TStartupInfo as a constant
+  @param   GTProcessInfo as a TGTProcessInfo as a reference
+  @return  a TGTTestStatus
+
+**)
+Function TfrmTestGUIMainForm.StartProcess(Const StartupInfo: TStartupInfo;
+  Var GTProcessInfo : TGTProcessInfo) : TGTTestStatus;
+
+ResourceString
+  strProcessHandle = 'Process Handle: %d';
+  strProcessID = 'Process ID: %d';
+  strProcess = 'Process: %s';
+
+Const
+  iWaitLoopInterval = 250;
+  iMaxWaitTimeForAppStartup = 10000;
+
+Var
+  boolResult : LongBool;
+  Timer : TStopwatch;
+
+Begin
+  Result := tsRunning;
+  boolResult := CreateProcess(
+    PChar(FExecutable),  {Executable}
+    PChar(FCommandLine), {Commandline}
+    Nil,                 {ProcessAttr}
+    Nil,                 {ThreadAttr}
+    True,                {InheritHandle}
+    0,                   {CreationFlags}
+    Nil,                 {Environment}
+    PChar(FDirectory),   {Directory}
+    StartupInfo,         {StartupInfo}
+    FProcessInfo         {ProcessInfo}
+  );        
+  WaitForInputIdle(FProcessInfo.hProcess, iMaxWaitTimeForAppStartup);
+  OutputEvent(strProcessHandle, [FProcessInfo.hProcess]);
+  OutputEvent(strProcessID, [FProcessInfo.dwProcessId]);
+  OutputEvent(strProcess, [FExecutable]);
+  If Not boolResult Then
+    Begin
+      Result := tsFailure;
+      FLastCommandError := SysErrorMessage(GetLastError);
+      EGTException.Create(FLastCommandError);
+    End;
+  // Try and find the Main Window for 5000 milliseconds
+  GTProcessInfo.FProcessID := FProcessInfo.dwProcessId;
+  GTProcessInfo.FWndHnd := 0;
+  Timer := TStopwatch.Create;
+  TIMer.Start;
+  Repeat
+    Sleep(iWaitLoopInterval);
+    EnumWindows(@WindowTopLvlWindow, LPARAM(@GTProcessInfo));
+  Until (GTProcessInfo.FWndHnd > 0) Or (Timer.ElapsedMilliseconds > iMaxWaitTimeForAppStartup);
+  Timer.Stop;
 End;
 
 (**
@@ -709,14 +981,15 @@ End;
 Function TfrmTestGUIMainForm.WaitCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitCommand', tmoTiming);{$ENDIF}
   FGutterImageDict[Statement.Line] := Integer(tsRunning);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
   Sleep(Statement.Parameter[0].AsInteger);
   Result := tsSuccessful;
   FGutterImageDict[Statement.Line] := Integer(Result);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
 End;
 
 (**
@@ -741,10 +1014,11 @@ Var
   iResult : Cardinal;
 
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForIdleCommand', tmoTiming);{$ENDIF}
   Result := tsRunning;
   FGutterImageDict[Statement.Line] := Integer(tsRunning);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
   iResult := WaitForInputIdle(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
   {
   EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL
@@ -772,7 +1046,7 @@ Begin
     End;
   FGutterImageDict[Statement.Line] := Integer(Result);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
 End;
 
 (**
@@ -803,9 +1077,10 @@ Var
   WindowPLacement : TWindowPlacement;
   
 Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForWindowCommand', tmoTiming);{$ENDIF}
   FGutterImageDict[Statement.Line] := Integer(tsRunning);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
   iStart := GetTickCount64;
   WindowPlacement.showCmd := SW_HIDE;
   Repeat
@@ -824,8 +1099,9 @@ Begin
     End;
   FGutterImageDict[Statement.Line] := Integer(Result);
   seCommands.InvalidateGutterLine(Statement.Line);
-  Application.ProcessMessages;
+  seCommands.Update;
 End;
 
 End.
+
 

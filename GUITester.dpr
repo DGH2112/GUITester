@@ -3,8 +3,8 @@
   This module contains the main project data for the GUI tester application.
 
   @Author  David Hoyle
-  @Version 1.116
-  @Date    14 May 2026
+  @Version 1.120
+  @Date    03 Jun 2026
 
   @nocheck hardcodedstring
   @license
@@ -30,6 +30,8 @@
 
 **)
 Program GUITester;
+
+{$R 'ITHVerInfo.res' 'ITHVerInfo.RC'}
 
 uses
   FastMM4,

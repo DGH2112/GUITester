@@ -1,0 +1,45 @@
+[Setup]
+IncBuild.Make.Base=1
+IncBuild.Build.Base=1
+IncBuild.Check.Base=0
+IncBuild.MakeUnit.Base=0
+IncBuild.Make.Release=0
+IncBuild.Build.Release=0
+IncBuild.Check.Release=0
+IncBuild.MakeUnit.Release=0
+IncBuild.Make.Debug=1
+IncBuild.Build.Debug=1
+IncBuild.Check.Debug=0
+IncBuild.MakeUnit.Debug=0
+CopyVersionInfoFrom=
+ExcludedResExts=.dcr
+EnabledVersionInfo=1
+IncludeInProject=1
+CompileWithBRCC32=0
+MajorVer=1
+MinorVer=0
+ReleaseVer=0
+BuildVer=30
+ResourceName=ITHVerInfo
+WarnBefore=0
+WarnAfter=0
+SaveModifiedFilesBeforeZipping=0
+
+[VersionInfo]
+CompanyName=David Hoyle
+FileDescription=An application to test GUI applications in Windows.
+FileVersion=1.0.0.30
+InternalName=GUITester
+LegalCopyright=David Hoyle
+LegalTrademarks=David Hoyle
+OriginalFilename=GUITester
+ProductName=GUITester
+ProductVersion=1.0
+Comments=An application to test GUI applications in Windows.
+
+[Zipping]
+Enabled=0
+ZipFile=
+BasePath=D:\Documents\RAD Studio\Applications\GUI Tester\
+ExclusionFiles=
+

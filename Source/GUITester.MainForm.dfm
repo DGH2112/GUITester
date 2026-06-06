@@ -14,11 +14,21 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 16
+  object Splitter1: TSplitter
+    Left = 0
+    Top = 458
+    Width = 806
+    Height = 3
+    Cursor = crVSplit
+    Align = alBottom
+    ExplicitLeft = 8
+    ExplicitTop = 266
+  end
   object seCommands: TSynEdit
     Left = 0
     Top = 26
     Width = 806
-    Height = 587
+    Height = 432
     Align = alClient
     ActiveLineColor = clTeal
     Font.Charset = DEFAULT_CHARSET
@@ -115,6 +125,71 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
       item
         Width = 50
       end>
+  end
+  object seOutput: TSynEdit
+    Left = 0
+    Top = 461
+    Width = 806
+    Height = 152
+    Align = alBottom
+    ActiveLineColor = clTeal
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -15
+    Font.Name = 'Consolas'
+    Font.Style = []
+    Font.Quality = fqClearTypeNatural
+    TabOrder = 3
+    UseCodeFolding = False
+    Gutter.Font.Charset = DEFAULT_CHARSET
+    Gutter.Font.Color = clWindowText
+    Gutter.Font.Height = -11
+    Gutter.Font.Name = 'Consolas'
+    Gutter.Font.Style = []
+    Gutter.Font.Quality = fqClearTypeNatural
+    Gutter.ShowLineNumbers = True
+    Gutter.UseFontStyle = False
+    Gutter.TrackChanges.ModifiedColor = clRed
+    Gutter.Bands = <
+      item
+        Kind = gbkMarks
+        Width = 13
+      end
+      item
+        Kind = gbkLineNumbers
+      end
+      item
+        Kind = gbkFold
+      end
+      item
+        Kind = gbkTrackChanges
+      end
+      item
+        Kind = gbkMargin
+        Width = 3
+      end
+      item
+        Kind = gbkCustom
+        Width = 20
+      end>
+    ScrollbarAnnotations = <
+      item
+        AnnType = sbaCarets
+        AnnPos = sbpFullWidth
+        FullRow = False
+      end
+      item
+        AnnType = sbaBookmark
+        AnnPos = sbpLeft
+        FullRow = True
+      end
+      item
+        AnnType = sbaTrackChanges
+        AnnPos = sbpRight
+        FullRow = True
+      end>
+    OnChange = seCommandsChange
+    OnStatusChange = seCommandsStatusChange
   end
   object amActions: TActionManager
     ActionBars = <
