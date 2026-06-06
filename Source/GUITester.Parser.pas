@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 2.607
-  @Date    02 Jun 2026
+  @Version 2.699
+  @Date    06 Jun 2026
 
   @license
 
@@ -78,6 +78,7 @@ Type
     Procedure CheckSymbol(Const strSymbol : String);
     Procedure CheckInteger();
     Procedure CheckString();
+    Function  BringToFront() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -110,6 +111,42 @@ Function TGTParser.Add(Const eStatementType: TGTStatementType; Const iLine : Int
 Begin
   Result := TGTStatement.Create(eStatementType, iLIne);
   FStatements.Add(Result);
+End;
+
+(**
+
+  This method parses the BringToFront element of the grammar.
+
+  @precon  None.
+  @postcon The bring to front grammar is parses and a statement generated else an exception is raised.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.BringToFront: Boolean;
+
+Const
+  strBRINGTOFRONT = 'BRINGTOFRONT';
+
+Var
+  Statement: IGTStatement;
+  T: TGTToken;
+  WindowClass: TGTToken;
+
+Begin
+  Result := CompareText(strBRINGTOFRONT, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  T := Token;
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  WindowClass := Token();
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
+  Statement := Add(stBringToFront, T.Fline);
+  Statement.AddParameter(WindowClass);
 End;
 
 (**
@@ -705,7 +742,7 @@ ResourceString
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'Statements', tmoTiming);{$ENDIF}
   While Launch() Or WaitForIdle() Or TestClass() Or SendKeys() Or WaitForWindow() Or Wait() Or
-    CheckProcessEnd() Do
+    CheckProcessEnd() Or BringToFront() Do
     Begin
       MoveToNextNonCommentToken();
       CheckSymbol(';');

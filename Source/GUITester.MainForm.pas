@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.394
+  @Version 5.459
   @Date    06 Jun 2026
 
   @license
@@ -110,6 +110,7 @@ uses
   System.IniFiles,
   System.IOUtils,
   System.UITypes,
+  System.TypInfo,
   CodeSiteLogging,
   Spring,
   GUITester.Parser,
@@ -190,7 +191,10 @@ Begin
       Begin
         MarkLinesWithStatements(Statements);
         If Parser.LastError <> '' Then
-          Exit;
+          Begin
+            EditorUpdateEvent(Parser.Line, tsFailure);
+            Exit;
+          End;
         ProcessStatements(Statements);
       End;
   Except
@@ -433,6 +437,7 @@ Procedure TfrmTestGUIMainForm.ProcessStatements(Const Statements: IGTStatements)
 
 ResourceString
   strTestsCompleted = 'Tests completed!';
+  strStmtTypeNotImpl = 'Statement type %s not implemented!';
 
 Var
   eResult : TGTTestStatus;
@@ -454,8 +459,11 @@ Begin
           stWait:            eResult := FParserStatements.WaitCommand(Statement);
           stSendKeys:        eResult := FParserStatements.SendKeysCommand(Statement);
           stCheckProcessEnd: eResult := FParserStatements.CheckProcessEndCommand(Statement);
+          stBringToFront:    eResult := FParserStatements.BringToFront(Statement);
         Else
-          eResult := tsFailure;
+          Raise EGTParserException.CreateFmt(strStmtTypeNotImpl, [
+            GetEnumName(TypeInfo(TGTStatementType), Ord(Statement.StatementType))
+          ]);
         End;
         If eResult = tsFailure Then
           Begin

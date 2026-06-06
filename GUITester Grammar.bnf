@@ -4,8 +4,8 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.197
-  @Date    02 Jun 2026
+  @Version 1.210
+  @Date    06 Jun 2026
 
   @usesemicolon
   @license
@@ -40,7 +40,9 @@
                         <SendKeys> |
                         <WaitForWindow> |
                         <Wait> |
-                        <CheckProcessEnd>) ';';
+                        <CheckProcessEnd> |
+                        <BringToFront>
+                      ) ';';
 
 <Launch>          ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
 
@@ -61,6 +63,8 @@
 <Wait>            ::= 'WAIT' '(' <IntegerNumber> ')';
 
 <CheckProcessEnd> ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')';
+
+<BringToFront>    ::= 'BRINGTOFRONT' '(' <StringLiteral> ')';
 
 <StringLiteral>   ::= '''' (#32..#127)* '''';
 

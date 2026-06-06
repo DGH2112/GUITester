@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 1.221
+  @Version 1.564
   @Author  David Hoyle
   @Date    06 Jun 2026
   
@@ -51,6 +51,7 @@ Type
     Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -70,6 +71,40 @@ Uses
   System.Classes,
   System.Diagnostics,
   GUITester.Functions;
+
+(**
+
+  This method finds the windows with the given window class name and brings it to the front.
+
+  @precon  None.
+  @postcon The window  with the given class name it brought to the front.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.BringToFront(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strWindowNotFound = 'Window "%S" not found!';
+
+Var
+  iWnd: HWND;
+
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  If iWnd > 0 Then
+    Begin
+      Win32Check(BringWindowToTop(iWnd));
+      Result := tsSuccessful;
+    End Else
+    Begin
+      Result := tsFailure;
+      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
+    End;
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
 
 (**
 
@@ -136,9 +171,6 @@ Var
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'CheckProcessEndCommand', tmoTiming);{$ENDIF}
   Result := tsRunning;
-  //FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, tsRunning);
   iResult := WaitForSingleObject(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
   If iResult = WAIT_OBJECT_0 Then
@@ -153,9 +185,6 @@ Begin
       Result := tsFailure;
       FLastCommandError(strWaitFailed);
     End;
-  //FGutterImageDict[Statement.Line] := Integer(Result);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -209,9 +238,6 @@ Var
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'LaunchCommand', tmoTiming);{$ENDIF}
   Try
-    //FGutterImageDict[Statement.Line] := Integer(tsRunning);
-    //seCommands.InvalidateGutterLine(Statement.Line);
-    //seCommands.Update;
     FEditorUpdateEvent(Statement.Line, tsRunning);
     SetupStartupInfo(StartupInfo);
     CaptureCommaneLine(Statement);
@@ -236,9 +262,6 @@ Begin
         FLastCommandError(E.Message);
       End;
   End;
-  //FGutterImageDict[Statement.Line] := Integer(Result);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -271,9 +294,6 @@ Var
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
-  //FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, tsRunning);
   ShiftStates := [];
   // Find Shift States - Start at 1 as parameter 0 is the text to output.
@@ -309,9 +329,6 @@ Begin
   If ssCtrl In ShiftStates Then
     keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
   Result := tsSuccessful;
-  //FGutterImageDict[Statement.Line] := Integer(Result);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -455,15 +472,9 @@ Function TGTParserStatements.WaitCommand(Const Statement: IGTStatement): TGTTest
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitCommand', tmoTiming);{$ENDIF}
-  //FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Sleep(Statement.Parameter[0].AsInteger);
   Result := tsSuccessful;
-  //FGutterImageDict[Statement.Line] := Integer(Result);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -491,9 +502,6 @@ Var
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForIdleCommand', tmoTiming);{$ENDIF}
   Result := tsRunning;
-  //FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, tsRunning);
   iResult := WaitForInputIdle(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
   {
@@ -520,9 +528,6 @@ Begin
       Result := tsFailure;
       FLastCommandError(strWaitFailed);
     End;
-  //FGutterImageDict[Statement.Line] := Integer(Result);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -555,9 +560,6 @@ Var
   
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForWindowCommand', tmoTiming);{$ENDIF}
-  //FGutterImageDict[Statement.Line] := Integer(tsRunning);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, tsRunning);
   iStart := GetTickCount64;
   WindowPlacement.showCmd := SW_HIDE;
@@ -575,9 +577,6 @@ Begin
       Result := tsFailure;
       FLastCommandError(strWaitTimedOut);
     End;
-  //FGutterImageDict[Statement.Line] := Integer(Result);
-  //seCommands.InvalidateGutterLine(Statement.Line);
-  //seCommands.Update;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
