@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.559
+  @Version 5.560
   @Date    07 Jun 2026
 
   @license
@@ -201,7 +201,7 @@ Begin
             EditorUpdateEvent(Parser.Line, tsFailure);
             Exit;
           End;
-        ProcessStatements(Statements);
+        //: @DEBUG ProcessStatements(Statements);
       End;
   Except
     On E : EGTException Do

@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 2.981
-  @Date    06 Jun 2026
+  @Version 3.077
+  @Date    07 Jun 2026
 
   @license
 
@@ -407,7 +407,7 @@ End;
 Function TGTParser.GetNextToken(): TGTToken;
 
 Type
-  TGTBlock = (blString, blComment);
+  TGTBlock = (blString, blBraceComment, blSlashComment, blFullComment);
   TGTBlocks = Set of TGTBlock;
 
   (**
@@ -441,6 +441,7 @@ Var
   eLastTokenType : TGTTokenType;
   setBlocks : TGTBlocks;
   strToken : String;
+  cLastChar : Char;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'GetNextToken', tmoTiming);{$ENDIF}
@@ -448,22 +449,36 @@ Begin
   If FTokenPos > Length(FSource) Then
     Exit;
   eLastTokenType := CharType(FSource[FTokenPos]);
+  cLastChar := #0;
   iLen := 0;
   strToken := StringOfChar(#0, iCAPACITY);
   setBlocks := [];
   Repeat
+    If (FSource[FTokenPos] = #13) And (blSlashComment In setBlocks) Then
+      Begin
+        setBlocks := [];
+        eLastTokenType := ttComment;
+      End;
     eTokenType := CharType(FSource[FTokenPos]);
     If (eTokenType <> eLastTokenType) And (setBlocks = []) Then
       Break;
-    If (FSource[FTokenPos] = '''') And (setBlocks * [blComment] = []) Then
+    // String Literals
+    If (FSource[FTokenPos] = '''') And ((setBlocks = []) Or (setBlocks = [blString])) Then
       SwitchBlock(setBlocks, blString);
-    If CharInSet(FSource[FTokenPos], ['{', '}']) And (setBlocks * [blString] = []) Then
-      SwitchBlock(setBlocks, blComment);
+    // Brace Comment
+    If CharInSet(FSource[FTokenPos], ['{', '}']) And ((setBlocks = []) Or (setBlocks = [blBraceComment])) Then
+      SwitchBlock(setBlocks, blBraceComment);
+    // Double Slash Comment
+    If (FSource[FTokenPos] = '/') And (cLastChar = '/') And (setBlocks = []) Then
+      SwitchBlock(setBlocks, blSlashComment);
+    // Add character to Token
     Inc(iLen);
     If iLen > strToken.Length Then
       strToken := strToken + StringOfChar(#0, iCAPACITY);
     strToken[iLen] := FSource[FTokenPos];    
     eLastTokenType := eTokenType;
+    cLastChar := strToken[iLen];
+    // Increment Line and Column where necessary
     If FSource[FTokenPos] <> #13 Then
       Inc(FColumn);
     If FSource[FTokenPos] = #10 Then
@@ -473,6 +488,7 @@ Begin
       End;
     Inc(FTokenPos);
   Until (FTokenPos > FSource.Length) Or ((eLastTokenType = ttSymbol) And (setBlocks = []));
+  // Output/Store Token
   SetLength(strToken, iLen);
   Result := TGTToken.Create(strToken, eLastTokenType, FLine, FColumn - strToken.Length);
   FTokens.Add(Result);
