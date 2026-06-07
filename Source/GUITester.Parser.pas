@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.077
+  @Version 3.240
   @Date    07 Jun 2026
 
   @license
@@ -80,6 +80,7 @@ Type
     Procedure CheckString();
     Function  BringToFront() : Boolean;
     Function  PositionWindow() : Boolean;
+    Function  ListWindows() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -399,7 +400,7 @@ End;
   @precon  None.
   @postcon Returns the next token in the stream and also adds it to the end of the  token list.
 
-  @nometric cyclometriccomplexity
+  @nometric cyclometriccomplexity toxicity
 
   @return  a TGTToken
 
@@ -454,11 +455,19 @@ Begin
   strToken := StringOfChar(#0, iCAPACITY);
   setBlocks := [];
   Repeat
+    // Terminate Slash Comments if we see a #13 charactcer
     If (FSource[FTokenPos] = #13) And (blSlashComment In setBlocks) Then
       Begin
         setBlocks := [];
         eLastTokenType := ttComment;
       End;
+    // Terminate Full Comments if we see a *) charactcers
+    //If (cLastChar = '*') And (FSource[FTokenPos] = ')') And (blFullComment In setBlocks) Then
+    //  Begin
+    //    setBlocks := [];
+    //    eLastTokenType := ttComment;
+    //  End;
+    // Get Token Type and BREAK if different
     eTokenType := CharType(FSource[FTokenPos]);
     If (eTokenType <> eLastTokenType) And (setBlocks = []) Then
       Break;
@@ -471,6 +480,9 @@ Begin
     // Double Slash Comment
     If (FSource[FTokenPos] = '/') And (cLastChar = '/') And (setBlocks = []) Then
       SwitchBlock(setBlocks, blSlashComment);
+    //: Full Comment @BUG DOES NOT WORK AS ( IS A SYMBOL
+    //If (FSource[FTokenPos] = '*') And (cLastChar = '(') And (setBlocks = []) Then
+    //  SwitchBlock(setBlocks, blFullComment);
     // Add character to Token
     Inc(iLen);
     If iLen > strToken.Length Then
@@ -622,6 +634,38 @@ Begin
     Statement.AddParameter(Directory);
   If CommandLine.FTokenType = ttString Then
     Statement.AddParameter(CommandLine);
+End;
+
+(**
+
+  This method parses the ListWindows element of the grammar.
+
+  @precon  None.
+  @postcon The lists all the top level windows that match the given regular expression.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.ListWindows: Boolean;
+
+Const
+  strLISTWINDOWS = 'LISTWINDOWS';
+
+Var
+  Statement: IGTStatement;
+  
+Begin
+  Result := CompareText(strLISTWINDOWS, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stListWindows, Token.Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
 End;
 
 (**
@@ -825,15 +869,17 @@ ResourceString
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'Statements', tmoTiming);{$ENDIF}
   While (
-    Launch() Or
-    WaitForIdle() Or
-    TestClass() Or
-    SendKeys() Or
-    WaitForWindow() Or
-    Wait() Or
-    CheckProcessEnd() Or
-    BringToFront() Or
-    PositionWindow() ) Do
+      Launch() Or
+      WaitForIdle() Or
+      TestClass() Or
+      SendKeys() Or
+      WaitForWindow() Or
+      Wait() Or
+      CheckProcessEnd() Or
+      BringToFront() Or
+      PositionWindow() Or
+      ListWindows()
+    ) Do
     Begin
       MoveToNextNonCommentToken();
       CheckSymbol(';');

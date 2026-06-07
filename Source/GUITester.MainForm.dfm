@@ -370,7 +370,7 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
     Top = 232
   end
   object shGeneral: TSynGeneralSyn
-    Comments = [csPasStyle, csCStyle]
+    Comments = [csPasStyle, csCStyle, csCPPStyle]
     DetectPreprocessor = False
     Left = 88
     Top = 48

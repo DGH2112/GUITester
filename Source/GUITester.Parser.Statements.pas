@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 2.608
+  @Version 3.235
   @Author  David Hoyle
   @Date    07 Jun 2026
   
@@ -11,8 +11,9 @@ Unit GUITester.Parser.Statements;
 
 Interface
 
-Uses
+uses
   Winapi.Windows,
+  System.RegularExpressions,
   GUITester.Interfaces;
 
 Type
@@ -32,6 +33,14 @@ Type
   (** An event signature for outputting event information to the main application. **)
   TGTOutputEvent = Procedure(Const strMsg : String; Const Args : Array Of Const) Of Object;
   
+  (** A record that provide a regular expression to text window class name and text against. **)
+  TGTRegExData = Record
+    FRegEx : TRegEx;
+    FOutputEvent : TGTOutputEvent;
+  End;
+  (** A pointer to the above record. **)
+  PGTRegExData = ^TGTRegExData;
+
   (** A class which implements the IGTParserStatements interface. **)
   TGTParserStatements = Class(TInterfacedObject, IGTParserStatements)
   Strict Private
@@ -53,6 +62,7 @@ Type
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -72,6 +82,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.Diagnostics,
+  System.RegularExpressionsCore,
   GUITester.Functions;
 
 ResourceString
@@ -266,6 +277,107 @@ Begin
       End;
   End;
   FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method checks if the top level window handle has either a class name or window text that matches
+  the given regular expression.
+
+  @precon  lParam must be a pointer to the TGTRegExData record
+  @postcon If there is a match the handle, class name and window text are output.
+
+  @nocheck MissingCONSTInParam
+  @nometric toxicity
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function ListWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+ResourceString
+  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
+
+Const
+  iBufferLen = 1024;
+
+Var
+  hProcess : HINST;
+  iLen: Integer;
+  iProcessID : DWORD;
+  recRegExData : PGTRegExData;
+  strClassName, strWindowText : String;
+  strExecutable : String;
+
+Begin
+  Result := True;
+  recRegExData := Pointer(lParam);
+  strClassName := TGTFunctions.WindowClassName(hWnd);
+  strWindowText := TGTFunctions.WindowText(hWnd);
+  If recRegExData.FRegEx.IsMatch(strClassName) Or
+     recRegExData.FRegEx.IsMatch(strWindowText) Then
+    Begin
+      If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
+        Exit;
+      strExecutable := StringOfChar(#0, iBufferLen);
+      hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
+      Try
+        iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
+        SetLength(strExecutable, iLen);
+        If iLen = 0 Then
+          strExecutable := SysErrorMessage(GetLastError);
+      Finally
+        CloseHandle(hProcess);
+      End;
+      recRegExData.FOutputEvent(
+        strHndClassText, [
+          hWnd,
+          strClassName,
+          strWindowText,
+          strExecutable
+        ]
+      );
+    End;
+End;
+
+(**
+
+  This method list all windows with either a class name or window text that matches the given regular
+  expression in the statement.
+
+  @precon  Statement must be a valid instance.
+  @postcon All top level windows matching the regular expression are output.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.ListWindows(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strOutputTopLvlWnd = 'Outputting Top Level Windows Matching "%s"';
+
+Var
+  recRegExData : TGTRegExData;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  Try
+    FOutputEvent(strOutputTopLvlWnd, [Statement.Parameter[0].FText.DeQuotedString]);
+    recRegExData.FRegEx := TRegEx.Create(
+      Statement.Parameter[0].FText.DeQuotedString,
+      [roIgnoreCase, roSingleLine, roCompiled]
+    );
+    recRegExData.FOutputEvent := FOutputEvent;
+    EnumWindows(@ListWindowCallBack, LPARAM(@recRegExData));
+    Result := tsSuccessful;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
 End;
 
 (**
@@ -467,7 +579,7 @@ End;
   This method gets the top level window handle for the process ID passed in the lParam record and
   returns the window handle in the same lParam record.
 
-  @precon  lParam
+  @precon  lParam must be a pointer to a TGTProcessInfo record.
   @postcon If the window is found it is returns in the record passed via the lParam.
 
   @nocheck MissingCONSTInParam

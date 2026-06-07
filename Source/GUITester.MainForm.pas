@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.560
+  @Version 5.571
   @Date    07 Jun 2026
 
   @license
@@ -201,7 +201,7 @@ Begin
             EditorUpdateEvent(Parser.Line, tsFailure);
             Exit;
           End;
-        //: @DEBUG ProcessStatements(Statements);
+        ProcessStatements(Statements);
       End;
   Except
     On E : EGTException Do
@@ -475,6 +475,7 @@ Begin
           stCheckProcessEnd: eResult := FParserStatements.CheckProcessEndCommand(Statement);
           stBringToFront:    eResult := FParserStatements.BringToFront(Statement);
           stPositionWindow:  eResult := FParserStatements.PositionWindow(Statement);
+          stListWindows:     eResult := FParserStatements.ListWindows(Statement);
         Else
           Raise EGTParserException.CreateFmt(strStmtTypeNotImpl, [
             GetEnumName(TypeInfo(TGTStatementType), Ord(Statement.StatementType))

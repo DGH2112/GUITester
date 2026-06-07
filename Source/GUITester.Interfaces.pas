@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 1.667
-  @Date    06 Jun 2026
+  @Version 1.677
+  @Date    07 Jun 2026
 
   @license
 
@@ -106,7 +106,8 @@ Type
     stWait,
     stCheckProcessEnd,
     stBringToFront,
-    stPositionWindow
+    stPositionWindow,
+    stListWindows
   );
 
   (** An interface to define the attributes of a statement. **)
@@ -201,6 +202,7 @@ Type
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
     // Properties
   End;
 
