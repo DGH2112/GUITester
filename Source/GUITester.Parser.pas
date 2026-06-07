@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.330
+  @Version 3.371
   @Date    07 Jun 2026
 
   @license
@@ -943,25 +943,25 @@ Const
   strTestClass = 'TestClass';
 
 Var
-  ClassName: TGTToken;
   Statement: IGTStatement;
-  T: TGTToken;
 
 Begin
   Result := CompareText(strTestClass, Token.FText) = 0;
   If Not Result Then
     Exit;
-  T := Token;
+  Statement := Add(stTestClass, Token().FLine);
   MoveToNextNonCommentToken();;
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  ClassName := Token;
-  //: @BUG No tests are performed!!!!
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token());
   MoveToNextNonCommentToken();
   CheckSymbol(')');
-  Statement := Add(stTestClass, T.FLine);
-  Statement.AddParameter(ClassName);
 End;
 
 (**

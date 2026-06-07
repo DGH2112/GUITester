@@ -188,8 +188,6 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
         AnnPos = sbpRight
         FullRow = True
       end>
-    OnChange = seCommandsChange
-    OnStatusChange = seCommandsStatusChange
   end
   object amActions: TActionManager
     ActionBars = <

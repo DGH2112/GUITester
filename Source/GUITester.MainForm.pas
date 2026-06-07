@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.688
+  @Version 5.776
   @Date    07 Jun 2026
 
   @license
@@ -89,7 +89,6 @@ Type
     FGutterImageDict  : IDictionary<Integer, Integer>;
     FLastCommandError : String;
     FParserStatements : IGTParserStatements;
-    FTimer            : TStopWatch;
   Strict Protected
     Procedure LoadSettings();
     Procedure SaveSettings();
@@ -171,47 +170,39 @@ Procedure TfrmTestGUIMainForm.actFileParseAndRunExecute(Sender: TObject);
 
 ResourceString
   strOkay = 'Okay';
-  strException = '* Exception: %s';
   strParsedInMs = 'Parsed in %1.0n ms!';
 
 Var
   Parser : IGTParser;
   Statements : IGTStatements;
+  Timer : TStopwatch;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'actFileParseAndRunExecute', tmoTiming);{$ENDIF}
-  Try
-    FTimer.Start;
-    seCommands.Indicators.Clear;
-    Parser := TGTParser.Create();
-    Parser.Parse(seCommands.Lines.Text);
-    If Parser.LastError <> '' Then
-      Begin
-        OutputEvent(Parser.LastError, []);
-        seCommands.CaretY := Parser.Line;
-        seCommands.CaretX := Parser.Column;
-      End Else
-        OutputEvent(strOkay, []);
-    OutputEvent(strParsedInMs, [FTimer.ElapsedMilliseconds.ToExtended]);
-    If Supports(Parser, IGTStatements, Statements) Then
-      Begin
-        MarkLinesWithStatements(Statements);
-        If Parser.LastError <> '' Then
-          Begin
-            EditorUpdateEvent(Parser.Line, tsFailure);
-            Exit;
-          End;
-        ProcessStatements(Statements);
-      End;
-  Except
-    On E : EGTException Do
-      Begin
-        OutputEvent('*'#13#10, []);
-        OutputEvent(strException, [E.Message]);
-        OutputEvent('*'#13#10, []);
-        EditorUpdateEvent(Parser.Line, tsFailure);
-      End;
-  End;
+  Timer := TStopwatch.Create();
+  Timer.Start;
+  seCommands.Indicators.Clear;
+  Parser := TGTParser.Create();
+  Parser.Parse(seCommands.Lines.Text);
+  If Parser.LastError <> '' Then
+    Begin
+      OutputEvent(Parser.LastError, []);
+      seCommands.CaretY := Parser.Line;
+      seCommands.CaretX := Parser.Column;
+    End Else
+      OutputEvent(strOkay, []);
+  Timer.Stop;
+  OutputEvent(strParsedInMs, [Timer.ElapsedMilliseconds.ToExtended]);
+  If Supports(Parser, IGTStatements, Statements) Then
+    Begin
+      MarkLinesWithStatements(Statements);
+      If Parser.LastError <> '' Then
+        Begin
+          EditorUpdateEvent(Parser.Line, tsFailure);
+          Exit;
+        End;
+      ProcessStatements(Statements);
+    End;
 End;
 
 (**
@@ -450,31 +441,45 @@ Procedure TfrmTestGUIMainForm.ProcessStatements(Const Statements: IGTStatements)
 
 ResourceString
   strTestsCompleted = 'Tests completed in %1.0n ms!';
+  strException = '* Exception: %s';
 
 Var
   eResult : TGTTestStatus;
   i : Integer;
   Statement : IGTStatement;
+  Timer : TStopwatch;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'ProcessStatements', tmoTiming);{$ENDIF}
-  FTimer.Start;
-  seCommands.ReadOnly := True;
   Try
-    For i := 0 To Statements.Count - 1 Do
+    Timer := TStopwatch.Create();
+    Timer.Start;
+    seCommands.ReadOnly := True;
+    Try
+      For i := 0 To Statements.Count - 1 Do
+        Begin
+          Statement := Statements.Statement[i];
+          seCommands.TopLine := Statement.Line - (seCommands.LinesInWindow Div 2);
+          eResult := FParserStatements.RunStatement(Statement);
+          If eResult = tsFailure Then
+            Begin
+              OutputEvent(FLastCommandError, []);
+              Exit;
+            End;
+        End;
+      Timer.Stop;
+      OutputEvent(strTestsCompleted, [Timer.ElapsedMilliseconds.ToExtended]);
+    Finally
+      seCommands.ReadOnly := False;
+    End;
+  Except
+    On E : EGTException Do
       Begin
-        Statement := Statements.Statement[i];
-        seCommands.TopLine := Statement.Line - (seCommands.LinesInWindow Div 2);
-        eResult := FParserStatements.RunStatement(Statement);
-        If eResult = tsFailure Then
-          Begin
-            OutputEvent(FLastCommandError, []);
-            Exit;
-          End;
+        OutputEvent('*'#13#10, []);
+        OutputEvent(strException, [E.Message]);
+        OutputEvent('*'#13#10, []);
+        EditorUpdateEvent(Statement.Line, tsFailure);
       End;
-    OutputEvent(strTestsCompleted, [FTimer.ElapsedMilliseconds.ToExtended]);
-  Finally
-    seCommands.ReadOnly := False;
   End;
 End;
 

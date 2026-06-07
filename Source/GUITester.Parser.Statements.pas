@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 4.004
+  @Version 4.492
   @Author  David Hoyle
   @Date    07 Jun 2026
   
@@ -38,6 +38,7 @@ Type
   TGTRegExData = Record
     FRegEx       : TRegEx;
     FOutputEvent : TGTOutputEvent;
+    FCounter     : Integer;
   End;
   (** A pointer to the above record. **)
   PGTRegExData = ^TGTRegExData;
@@ -75,6 +76,7 @@ Type
     Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function TestClassCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
@@ -105,6 +107,196 @@ uses
 ResourceString
   (** A resource string message for not being able to find a window with a specific class name. **)
   strWindowNotFound = 'Window with class name "%s" was not found!';
+
+(**
+
+  This method checks if the child window handle has either a class name or window text that matches
+  the given regular expression.
+
+  @precon  lParam must be a pointer to the TGTRegExData record
+  @postcon If there is a match the handle, class name and window text are output.
+
+  @nocheck MissingCONSTInParam
+  @nometric toxicity
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function FindChildWindowsCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+Var
+  recRegExData : PGTRegExData;
+
+Begin
+  Result := True;
+  recRegExData := Pointer(lParam);
+  If recRegExData.FRegEx.IsMatch(TGTFunctions.WindowClassName(hWNd)) Or 
+     recRegExData.FRegEx.IsMatch(TGTFunctions.WindowText(hWNd)) Then
+    Inc(recRegExData.FCounter);
+End;
+
+(**
+
+  This method checks if the child window handle has either a class name or window text that matches
+  the given regular expression.
+
+  @precon  lParam must be a pointer to the TGTRegExData record
+  @postcon If there is a match the handle, class name and window text are output.
+
+  @nocheck MissingCONSTInParam
+  @nometric toxicity
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function ListChildWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+ResourceString
+  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
+
+Const
+  iBufferLen = 1024;
+
+Var
+  hProcess : HINST;
+  iLen: Integer;
+  iProcessID : DWORD;
+  recChildData : PGTChildData;
+  strClassName, strWindowText : String;
+  strExecutable : String;
+
+Begin
+  Result := True;
+  recChildData := Pointer(lParam);
+  strClassName := TGTFunctions.WindowClassName(hWnd);
+  strWindowText := TGTFunctions.WindowText(hWnd);
+  If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
+    Exit;
+  strExecutable := StringOfChar(#0, iBufferLen);
+  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
+  Try
+    iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
+    SetLength(strExecutable, iLen);
+    If iLen = 0 Then
+      strExecutable := SysErrorMessage(GetLastError);
+  Finally
+    CloseHandle(hProcess);
+  End;
+  recChildData.FOutputEvent(
+    strHndClassText, [
+      hWnd,
+      strClassName,
+      strWindowText,
+      strExecutable
+    ]
+  );
+End;
+
+(**
+
+  This method checks if the top level window handle has either a class name or window text that matches
+  the given regular expression.
+
+  @precon  lParam must be a pointer to the TGTRegExData record
+  @postcon If there is a match the handle, class name and window text are output.
+
+  @nocheck MissingCONSTInParam
+  @nometric toxicity
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function ListWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+ResourceString
+  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
+
+Const
+  iBufferLen = 1024;
+
+Var
+  hProcess : HINST;
+  iLen: Integer;
+  iProcessID : DWORD;
+  recRegExData : PGTRegExData;
+  strClassName, strWindowText : String;
+  strExecutable : String;
+
+Begin
+  Result := True;
+  recRegExData := Pointer(lParam);
+  strClassName := TGTFunctions.WindowClassName(hWnd);
+  strWindowText := TGTFunctions.WindowText(hWnd);
+  If recRegExData.FRegEx.IsMatch(strClassName) Or
+     recRegExData.FRegEx.IsMatch(strWindowText) Then
+    Begin
+      If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
+        Exit;
+      strExecutable := StringOfChar(#0, iBufferLen);
+      hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
+      Try
+        iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
+        SetLength(strExecutable, iLen);
+        If iLen = 0 Then
+          strExecutable := SysErrorMessage(GetLastError);
+      Finally
+        CloseHandle(hProcess);
+      End;
+      recRegExData.FOutputEvent(
+        strHndClassText, [
+          hWnd,
+          strClassName,
+          strWindowText,
+          strExecutable
+        ]
+      );
+    End;
+End;
+
+(**
+
+  This method gets the top level window handle for the process ID passed in the lParam record and
+  returns the window handle in the same lParam record.
+
+  @precon  lParam must be a pointer to a TGTProcessInfo record.
+  @postcon If the window is found it is returns in the record passed via the lParam.
+
+  @nocheck MissingCONSTInParam
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function WindowTopLvlWindow(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+Var
+  iProcessID : DWORD;
+  ProcessInfo : PGTProcessInfo;
+
+Begin
+  Result := True;
+  ProcessInfo := Pointer(lParam);
+  GetWindowThreadProcessId(hWnd, iProcessID);
+  If (iProcessID = ProcessInfo.FProcessID) Then
+    Begin
+      //CodeSite.SendFmtMsg('Window Class: %s, Window Text: %s', [
+      //  TGTFunctions.WindowClassName(hWnd),
+      //  TGTFunctions.WindowText(hWnd)
+      //]);
+      If (GetWindow(hWNd, GW_OWNER) = 0) And (IsWindowVisible(hWnd)) Then
+        Begin
+          ProcessInfo.FWndHnd := hWnd;
+          Result := False;
+        End;
+    End;
+End;
 
 (**
 
@@ -245,7 +437,7 @@ Begin
   FStatements.Add(stLaunch, LaunchCommand);
   FStatements.Add(stWaitForIdle, WaitForIdleCommand);
   FStatements.Add(stSendKeys, SendKeysCommand);
-  //: @TODO FStatements.Add(stTestClass, TestClassCommand);
+  FStatements.Add(stTestClass, TestClassCommand);
   FStatements.Add(stWaitForWindow, WaitForWindowCommand);
   FStatements.Add(stWait, WaitCommand);
   FStatements.Add(stCheckProcessEnd, CheckProcessEndCommand);
@@ -253,65 +445,6 @@ Begin
   FStatements.Add(stPositionWindow, PositionWindow);
   FStatements.Add(stListWindows, ListWindows);
   FStatements.Add(stListChildWindows, ListChildWindows);
-End;
-
-(**
-
-  This method checks if the child window handle has either a class name or window text that matches
-  the given regular expression.
-
-  @precon  lParam must be a pointer to the TGTRegExData record
-  @postcon If there is a match the handle, class name and window text are output.
-
-  @nocheck MissingCONSTInParam
-  @nometric toxicity
-
-  @param   hWnd   as a HWND
-  @param   lParam as a LPARAM
-  @return  a BOOL
-
-**)
-Function ListChildWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
-
-ResourceString
-  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
-
-Const
-  iBufferLen = 1024;
-
-Var
-  hProcess : HINST;
-  iLen: Integer;
-  iProcessID : DWORD;
-  recChildData : PGTChildData;
-  strClassName, strWindowText : String;
-  strExecutable : String;
-
-Begin
-  Result := True;
-  recChildData := Pointer(lParam);
-  strClassName := TGTFunctions.WindowClassName(hWnd);
-  strWindowText := TGTFunctions.WindowText(hWnd);
-  If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
-    Exit;
-  strExecutable := StringOfChar(#0, iBufferLen);
-  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
-  Try
-    iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
-    SetLength(strExecutable, iLen);
-    If iLen = 0 Then
-      strExecutable := SysErrorMessage(GetLastError);
-  Finally
-    CloseHandle(hProcess);
-  End;
-  recChildData.FOutputEvent(
-    strHndClassText, [
-      hWnd,
-      strClassName,
-      strWindowText,
-      strExecutable
-    ]
-  );
 End;
 
 (**
@@ -396,69 +529,6 @@ Begin
   EnumChildWindows(iWnd, @ListChildWindowCallBack, LPARAM(@recChildData));
   Result := tsSuccessful;
   FEditorUpdateEvent(Statement.Line, Result);
-End;
-
-(**
-
-  This method checks if the top level window handle has either a class name or window text that matches
-  the given regular expression.
-
-  @precon  lParam must be a pointer to the TGTRegExData record
-  @postcon If there is a match the handle, class name and window text are output.
-
-  @nocheck MissingCONSTInParam
-  @nometric toxicity
-
-  @param   hWnd   as a HWND
-  @param   lParam as a LPARAM
-  @return  a BOOL
-
-**)
-Function ListWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
-
-ResourceString
-  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
-
-Const
-  iBufferLen = 1024;
-
-Var
-  hProcess : HINST;
-  iLen: Integer;
-  iProcessID : DWORD;
-  recRegExData : PGTRegExData;
-  strClassName, strWindowText : String;
-  strExecutable : String;
-
-Begin
-  Result := True;
-  recRegExData := Pointer(lParam);
-  strClassName := TGTFunctions.WindowClassName(hWnd);
-  strWindowText := TGTFunctions.WindowText(hWnd);
-  If recRegExData.FRegEx.IsMatch(strClassName) Or
-     recRegExData.FRegEx.IsMatch(strWindowText) Then
-    Begin
-      If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
-        Exit;
-      strExecutable := StringOfChar(#0, iBufferLen);
-      hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
-      Try
-        iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
-        SetLength(strExecutable, iLen);
-        If iLen = 0 Then
-          strExecutable := SysErrorMessage(GetLastError);
-      Finally
-        CloseHandle(hProcess);
-      End;
-      recRegExData.FOutputEvent(
-        strHndClassText, [
-          hWnd,
-          strClassName,
-          strWindowText,
-          strExecutable
-        ]
-      );
-    End;
 End;
 
 (**
@@ -724,45 +794,6 @@ End;
 
 (**
 
-  This method gets the top level window handle for the process ID passed in the lParam record and
-  returns the window handle in the same lParam record.
-
-  @precon  lParam must be a pointer to a TGTProcessInfo record.
-  @postcon If the window is found it is returns in the record passed via the lParam.
-
-  @nocheck MissingCONSTInParam
-
-  @param   hWnd   as a HWND
-  @param   lParam as a LPARAM
-  @return  a BOOL
-
-**)
-Function WindowTopLvlWindow(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
-
-Var
-  iProcessID : DWORD;
-  ProcessInfo : PGTProcessInfo;
-
-Begin
-  Result := True;
-  ProcessInfo := Pointer(lParam);
-  GetWindowThreadProcessId(hWnd, iProcessID);
-  If (iProcessID = ProcessInfo.FProcessID) Then
-    Begin
-      //CodeSite.SendFmtMsg('Window Class: %s, Window Text: %s', [
-      //  TGTFunctions.WindowClassName(hWnd),
-      //  TGTFunctions.WindowText(hWnd)
-      //]);
-      If (GetWindow(hWNd, GW_OWNER) = 0) And (IsWindowVisible(hWnd)) Then
-        Begin
-          ProcessInfo.FWndHnd := hWnd;
-          Result := False;
-        End;
-    End;
-End;
-
-(**
-
   This method starts the GUI Application process to be tested.
 
   @precon  None.
@@ -791,7 +822,7 @@ Var
 Begin
   boolResult := CreateProcess(
     PChar(FExecutable),  {Executable}
-    PChar(FCommandLine), {Commandline}
+    PChar(Format('"%s" %s', [FExecutable, FCommandLine])), {Commandline}
     Nil,                 {ProcessAttr}
     Nil,                 {ThreadAttr}
     True,                {InheritHandle}
@@ -817,6 +848,53 @@ Begin
     EnumWindows(@WindowTopLvlWindow, LPARAM(@GTProcessInfo));
   Until (GTProcessInfo.FWndHnd > 0) Or (Timer.ElapsedMilliseconds > iMaxWaitTimeForAppStartup);
   Timer.Stop;
+End;
+
+(**
+
+  This method counts the number of child windows matching the second parameter of the statement.
+
+  @precon  Statement must be a valid instance.
+  @postcon Outputs success if 1 or more windows are found else failure..
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.TestClassCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strFoundChildWindowsMatching = 'Found %d child windows matching "%s"';
+
+Var
+  iWnd : HWND;
+  recRegExData : TGTRegExData;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  Try
+    recRegExData.FOutputEvent := FOutputEvent;
+    recRegExData.FCounter := 0;
+    recRegExData.FRegEx := TRegEx.Create(
+      Statement.Parameter[1].FText.DeQuotedString,
+      [roCompiled, roSingleLine, roIgnoreCase]
+    );
+    EnumChildWindows(iWnd, @FindChildWindowsCallBack, LPARAM(@recRegExData));
+    If recRegExData.FCounter > 0 Then
+      Begin
+        Result := tsSuccessful;
+        FOutputEvent(strFoundChildWindowsMatching, [
+          recRegExData.FCounter,
+          Statement.Parameter[1].FText.DeQuotedString
+        ])
+      End Else
+        Result := tsFailure;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
 End;
 
 (**
