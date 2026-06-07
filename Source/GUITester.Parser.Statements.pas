@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 2.524
+  @Version 2.608
   @Author  David Hoyle
-  @Date    06 Jun 2026
+  @Date    07 Jun 2026
   
 **)
 Unit GUITester.Parser.Statements;
@@ -319,7 +319,7 @@ End;
   @precon  Statement must be a valid instance.
   @postcon The characters are sent to the window.
 
-  @todo    Change to use SendMessageWithTimeOut()
+  @nometric cyclometriccomplexity toxicity
 
   @param   Statement as an IGTStatement as a constant
   @return  a TGTTestStatus
@@ -333,16 +333,34 @@ Const
   strALTKey = 'ALT';
   iLowByte = $00FF;
 
+  (**
+
+    This procedure performs the sending of the input to the top most window which has input.
+
+    @precon  Msg must be either WM_KEYDOWN and WM_KEYUP.
+    @postcon The key is sent to the top most window as input.
+
+    @param   iWnd   as a HWND as a constant
+    @param   Msg    as an UINT as a constant
+    @param   wParam as a WPARAM as a constant
+
+  **)
   Procedure SendKeys(Const iWnd : HWND; Const Msg : UINT; Const wParam : WPARAM);
+
+  ResourceString
+    strDoesNotHaveInput = 'The window "%s" does not have input ("%s" has input)!';
 
   Var
     Inputs: TInput;
 
   Begin
-    //Case Msg Of
-    //  WM_KEYDOWN: keybd_event(wParam, 0, 0, 0);
-    //  WM_KEYUP:   keybd_event(wParam, 0, KEYEVENTF_KEYUP, 0);
-    //End;  
+    If GetForegroundWindow <> iWnd Then
+      Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].FText.DeQuotedString,
+        TGTFunctions.WindowClassName(GetForegroundWindow)]);
+    {Case Msg Of
+      WM_KEYDOWN: keybd_event(wParam, 0, 0, 0);
+      WM_KEYUP:   keybd_event(wParam, 0, KEYEVENTF_KEYUP, 0);
+    End;}
     ZeroMemory(@Inputs, SizeOf(Inputs));
     Case Msg Of
       WM_KEYDOWN:
@@ -361,9 +379,6 @@ Const
     SendInput(1, Inputs, SizeOf(TInput));
   End;
 
-ResourceString
-  strDoesNotHaveInput = 'The window "%s" does not have input (%s)!';
-
 Var
   i: Integer;
   iWnd : HWND;
@@ -378,9 +393,6 @@ Begin
   iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
   If iWnd > 0 Then
     Begin
-      If GetForegroundWindow <> iWnd Then
-        Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].FText.DeQuotedString,
-          TGTFunctions.WindowClassName(GetForegroundWindow)]);
       // Find Shift States - Start at 1 as parameter 0 is the text to output.
       For iParameter := 1 To Statement.ParameterCount -1 Do
         If CompareText(Statement.Parameter[iParameter].FText, strCTRLKey) = 0 Then
@@ -408,11 +420,11 @@ Begin
         End;
       // Extended keys up
       If ssAlt In ShiftStates Then
-        SendKeys(iWnd, WM_KEYUP, VK_CONTROL);
+        SendKeys(iWnd, WM_KEYUP, VK_MENU);
       If ssShift In ShiftStates Then
         SendKeys(iWnd, WM_KEYUP, VK_SHIFT);
       If ssCtrl In ShiftStates Then
-        SendKeys(iWnd, WM_KEYUP, VK_MENU);
+        SendKeys(iWnd, WM_KEYUP, VK_CONTROL);
       Result := tsSuccessful;
       End Else
       Begin

@@ -3,8 +3,8 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.474
-  @Date    06 Jun 2026
+  @Version 5.559
+  @Date    07 Jun 2026
 
   @license
 
@@ -32,12 +32,16 @@ Unit GUITester.MainForm;
 
 Interface
 
-Uses
+uses
   Winapi.Windows,
   Winapi.Messages,
+  Winapi.D2D1,
   System.SysUtils,
   System.Variants,
   System.Classes,
+  System.Actions,
+  System.ImageList,
+  System.Diagnostics,
   Vcl.Graphics,
   Vcl.Controls,
   Vcl.Forms,
@@ -49,15 +53,13 @@ Uses
   Vcl.ActnCtrls,
   Vcl.ImgList,
   Vcl.ComCtrls,
-  WinAPI.D2D1,
+  Vcl.ExtCtrls,
   Spring.Collections,
   SynEdit,
-  System.Actions,
-  System.ImageList,
   SynEditHighlighter,
   SynHighlighterGeneral,
   SynEditMiscClasses,
-  GUITester.Interfaces, Vcl.ExtCtrls;
+  GUITester.Interfaces;
 
 Type
   (** A class which represents a form displaying the GUI Tester. **)
@@ -87,6 +89,7 @@ Type
     FGutterImageDict  : IDictionary<Integer, Integer>;
     FLastCommandError : String;
     FParserStatements : IGTParserStatements;
+    FTimer            : TStopWatch;
   Strict Protected
     Procedure LoadSettings();
     Procedure SaveSettings();
@@ -169,6 +172,7 @@ Procedure TfrmTestGUIMainForm.actFileParseAndRunExecute(Sender: TObject);
 ResourceString
   strOkay = 'Okay';
   strException = '* Exception: %s';
+  strParsedInMs = 'Parsed in %1.0n ms!';
 
 Var
   Parser : IGTParser;
@@ -177,16 +181,18 @@ Var
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'actFileParseAndRunExecute', tmoTiming);{$ENDIF}
   Try
+    FTimer.Start;
     seCommands.Indicators.Clear;
     Parser := TGTParser.Create();
     Parser.Parse(seCommands.Lines.Text);
     If Parser.LastError <> '' Then
       Begin
-        StatusBar1.Panels[1].Text := Parser.LastError;
+        OutputEvent(Parser.LastError, []);
         seCommands.CaretY := Parser.Line;
         seCommands.CaretX := Parser.Column;
       End Else
-        StatusBar1.Panels[1].Text := strOkay;
+        OutputEvent(strOkay, []);
+    OutputEvent(strParsedInMs, [FTimer.ElapsedMilliseconds.ToExtended]);
     If Supports(Parser, IGTStatements, Statements) Then
       Begin
         MarkLinesWithStatements(Statements);
@@ -413,12 +419,18 @@ End;
 **)
 Procedure TfrmTestGUIMainForm.OutputEvent(Const strMsg: String; Const Args: Array Of Const);
 
+Const
+  strTimeFmt = 'hh:nn:ss.zzz';
+
 Var
   iLine: Integer;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'OutputEvent', tmoTiming);{$ENDIF}
-  iLine := seOutput.Lines.Add(Format(strMsg, Args));
+  iLine := seOutput.Lines.Add(Format('%s: %s', [
+    FormatDateTime(strTimeFmt, Now()),
+    Format(strMsg, Args)
+  ]));
   seOutput.GotoLineAndCenter(Succ(iLine));
   seOutput.Update;
 End;
@@ -437,7 +449,7 @@ End;
 Procedure TfrmTestGUIMainForm.ProcessStatements(Const Statements: IGTStatements);
 
 ResourceString
-  strTestsCompleted = 'Tests completed!';
+  strTestsCompleted = 'Tests completed in %1.0n ms!';
   strStmtTypeNotImpl = 'Statement type %s not implemented!';
 
 Var
@@ -447,6 +459,7 @@ Var
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'ProcessStatements', tmoTiming);{$ENDIF}
+  FTimer.Start;
   seCommands.ReadOnly := True;
   Try
     For i := 0 To Statements.Count - 1 Do
@@ -469,11 +482,11 @@ Begin
         End;
         If eResult = tsFailure Then
           Begin
-            StatusBar1.Panels[1].Text := FLastCommandError;
+            OutputEvent(FLastCommandError, []);
             Exit;
           End;
       End;
-    StatusBar1.Panels[1].Text := strTestsCompleted;
+    OutputEvent(strTestsCompleted, [FTimer.ElapsedMilliseconds.ToExtended]);
   Finally
     seCommands.ReadOnly := False;
   End;
