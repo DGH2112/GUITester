@@ -3,7 +3,7 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 1.677
+  @Version 1.935
   @Date    07 Jun 2026
 
   @license
@@ -96,7 +96,7 @@ Type
   End;
 
   (** An enumerate of all the Statements types that the language supports. This may be removed and
-      replaced if this list gets too long. **)
+      replaced if this list gets too long. *)
   TGTStatementType = (
     stLaunch,
     stWaitForIdle,
@@ -107,7 +107,8 @@ Type
     stCheckProcessEnd,
     stBringToFront,
     stPositionWindow,
-    stListWindows
+    stListWindows,
+    stListChildWindows
   );
 
   (** An interface to define the attributes of a statement. **)
@@ -194,15 +195,7 @@ Type
   ['{EAA95898-3E8E-4264-A627-75034F762CDF}']
     // Getters and Setters
     // Methods
-    Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function WaitForWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
-    Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
-    Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
+    Function  RunStatement(Const Statement : IGTStatement) : TGTTestStatus;
     // Properties
   End;
 

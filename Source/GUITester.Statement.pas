@@ -4,8 +4,8 @@
   associated with a single statement in the language.
 
   @Author  David Hoyle
-  @Version 1.304
-  @Date    14 May 2026
+  @Version 1.330
+  @Date    07 Jun 2026
 
   @license
 
@@ -42,7 +42,7 @@ Type
   TGTStatement = Class(TInterfacedObject, IGTStatement)
   Strict Private
     FStatementType : TGTStatementType;
-    FLine : Integer;
+    FLine          : Integer;
     FParameters    : IList<TGTToken>;
   Strict Protected
     // IGTStatement

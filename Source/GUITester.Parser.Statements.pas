@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 3.235
+  @Version 4.004
   @Author  David Hoyle
   @Date    07 Jun 2026
   
@@ -14,6 +14,7 @@ Interface
 uses
   Winapi.Windows,
   System.RegularExpressions,
+  Spring.Collections,
   GUITester.Interfaces;
 
 Type
@@ -35,11 +36,22 @@ Type
   
   (** A record that provide a regular expression to text window class name and text against. **)
   TGTRegExData = Record
-    FRegEx : TRegEx;
+    FRegEx       : TRegEx;
     FOutputEvent : TGTOutputEvent;
   End;
   (** A pointer to the above record. **)
   PGTRegExData = ^TGTRegExData;
+
+  (** A method signature for all statements which can be run. **)
+  TGTStatementSignature = Function(Const Statement : IGTStatement) : TGTTestStatus Of Object;
+
+  (** A record to pass data to the ENUMCHILDWINDOWS call back. **)
+  TGTChildData = Record
+    FParentWHnd  : HWND;
+    FOutputEvent : TGTOutputEvent;
+  End;
+  (** A pointer to the above record. **)
+  PGTChildData = ^TGTChildData;
 
   (** A class which implements the IGTParserStatements interface. **)
   TGTParserStatements = Class(TInterfacedObject, IGTParserStatements)
@@ -52,8 +64,11 @@ Type
     FEditorUpdateEvent : TGTEditorUpdateEvent;
     FLastCommandError  : TGTLastCommandError;
     FOutputEvent       : TGTOutputEvent;
+    FStatements        : IDictionary<TGTStatementType, TGTStatementSignature>;
   Strict Protected
     // IGTParserStatements
+    Function  RunStatement(Const Statement : IGTStatement) : TGTTestStatus;
+    // Statements
     Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
@@ -63,6 +78,7 @@ Type
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListChildWindows(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -83,6 +99,7 @@ uses
   System.Classes,
   System.Diagnostics,
   System.RegularExpressionsCore,
+  System.TypInfo,
   GUITester.Functions;
 
 ResourceString
@@ -224,6 +241,77 @@ Begin
   FEditorUpdateEvent := EditorUpdateEvent;
   FLastCommandError := LastCommandError;
   FOutputEvent := OutputEvent;
+  FStatements := TCollections.CreateDictionary<TGTStatementType, TGTStatementSignature>;
+  FStatements.Add(stLaunch, LaunchCommand);
+  FStatements.Add(stWaitForIdle, WaitForIdleCommand);
+  FStatements.Add(stSendKeys, SendKeysCommand);
+  //: @TODO FStatements.Add(stTestClass, TestClassCommand);
+  FStatements.Add(stWaitForWindow, WaitForWindowCommand);
+  FStatements.Add(stWait, WaitCommand);
+  FStatements.Add(stCheckProcessEnd, CheckProcessEndCommand);
+  FStatements.Add(stBringToFront, BringToFront);
+  FStatements.Add(stPositionWindow, PositionWindow);
+  FStatements.Add(stListWindows, ListWindows);
+  FStatements.Add(stListChildWindows, ListChildWindows);
+End;
+
+(**
+
+  This method checks if the child window handle has either a class name or window text that matches
+  the given regular expression.
+
+  @precon  lParam must be a pointer to the TGTRegExData record
+  @postcon If there is a match the handle, class name and window text are output.
+
+  @nocheck MissingCONSTInParam
+  @nometric toxicity
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function ListChildWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+ResourceString
+  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
+
+Const
+  iBufferLen = 1024;
+
+Var
+  hProcess : HINST;
+  iLen: Integer;
+  iProcessID : DWORD;
+  recChildData : PGTChildData;
+  strClassName, strWindowText : String;
+  strExecutable : String;
+
+Begin
+  Result := True;
+  recChildData := Pointer(lParam);
+  strClassName := TGTFunctions.WindowClassName(hWnd);
+  strWindowText := TGTFunctions.WindowText(hWnd);
+  If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
+    Exit;
+  strExecutable := StringOfChar(#0, iBufferLen);
+  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
+  Try
+    iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
+    SetLength(strExecutable, iLen);
+    If iLen = 0 Then
+      strExecutable := SysErrorMessage(GetLastError);
+  Finally
+    CloseHandle(hProcess);
+  End;
+  recChildData.FOutputEvent(
+    strHndClassText, [
+      hWnd,
+      strClassName,
+      strWindowText,
+      strExecutable
+    ]
+  );
 End;
 
 (**
@@ -276,6 +364,37 @@ Begin
         FLastCommandError(E.Message);
       End;
   End;
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method list all child windows of the window the matches the given regular expression.
+
+  @precon  Statement must be a valid instance.
+  @postcon All child windows matching the window matching the regular expression are output.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.ListChildWindows(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strOutputtingChildWindows = 'Outputting Child Windows of "%s":';
+
+Var
+  iWnd : HWND;
+  recChildData : TGTChildData;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  FOutputEvent(strOutputtingChildWindows, [TGTFunctions.WindowClassName(iWnd)]);
+  recChildData.FParentWHnd := iWnd;
+  recChildData.FOutputEvent := FOutputEvent;
+  EnumChildWindows(iWnd, @ListChildWindowCallBack, LPARAM(@recChildData));
+  Result := tsSuccessful;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -422,6 +541,35 @@ Begin
       FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
     End;
   FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method attempts to run the given statement by looking up the statement type in the list of
+  registered statement types.
+
+  @precon  Statement must be a valid instance.
+  @postcon The statement is run, else an exception is raised.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.RunStatement(Const Statement: IGTStatement) : TGTTestStatus;
+
+ResourceString
+  strStmtTypeNotImpl = 'Statement type %s not implemented!';
+
+Var
+  StatementSign : TGTStatementSignature;
+  
+Begin
+  If FStatements.TryGetValue(Statement.StatementType, StatementSign) Then
+    Result := StatementSign(Statement)
+  Else
+    Raise EGTParserException.CreateFmt(strStmtTypeNotImpl, [
+      GetEnumName(TypeInfo(TGTStatementType), Ord(Statement.StatementType))
+    ]);
 End;
 
 (**

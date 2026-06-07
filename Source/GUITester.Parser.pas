@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.240
+  @Version 3.330
   @Date    07 Jun 2026
 
   @license
@@ -81,6 +81,7 @@ Type
     Function  BringToFront() : Boolean;
     Function  PositionWindow() : Boolean;
     Function  ListWindows() : Boolean;
+    Function  ListChildWindows() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -638,6 +639,37 @@ End;
 
 (**
 
+  This method parses the ListChildWindows element of the grammar.
+
+  @precon  None.
+  @postcon The lists all the child windows that match the window with the given regular expression.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.ListChildWindows: Boolean;
+
+Const
+  strLISTCHILDWINDOWS = 'LISTCHILDWINDOWS';
+
+var
+  Statement: IGTStatement;
+Begin
+  Result := CompareText(strLISTCHILDWINDOWS, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stListChildWindows, Token.Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
+End;
+
+(**
+
   This method parses the ListWindows element of the grammar.
 
   @precon  None.
@@ -878,7 +910,8 @@ Begin
       CheckProcessEnd() Or
       BringToFront() Or
       PositionWindow() Or
-      ListWindows()
+      ListWindows() Or
+      ListChildWindows()
     ) Do
     Begin
       MoveToNextNonCommentToken();

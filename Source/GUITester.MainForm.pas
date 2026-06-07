@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.571
+  @Version 5.688
   @Date    07 Jun 2026
 
   @license
@@ -450,7 +450,6 @@ Procedure TfrmTestGUIMainForm.ProcessStatements(Const Statements: IGTStatements)
 
 ResourceString
   strTestsCompleted = 'Tests completed in %1.0n ms!';
-  strStmtTypeNotImpl = 'Statement type %s not implemented!';
 
 Var
   eResult : TGTTestStatus;
@@ -466,21 +465,7 @@ Begin
       Begin
         Statement := Statements.Statement[i];
         seCommands.TopLine := Statement.Line - (seCommands.LinesInWindow Div 2);
-        Case Statement.StatementType Of
-          stLaunch:          eResult := FParserStatements.LaunchCommand(Statement);
-          stWaitForIdle:     eResult := FParserStatements.WaitForIdleCommand(Statement);
-          stWaitForWindow:   eResult := FParserStatements.WaitForWindowCommand(Statement);
-          stWait:            eResult := FParserStatements.WaitCommand(Statement);
-          stSendKeys:        eResult := FParserStatements.SendKeysCommand(Statement);
-          stCheckProcessEnd: eResult := FParserStatements.CheckProcessEndCommand(Statement);
-          stBringToFront:    eResult := FParserStatements.BringToFront(Statement);
-          stPositionWindow:  eResult := FParserStatements.PositionWindow(Statement);
-          stListWindows:     eResult := FParserStatements.ListWindows(Statement);
-        Else
-          Raise EGTParserException.CreateFmt(strStmtTypeNotImpl, [
-            GetEnumName(TypeInfo(TGTStatementType), Ord(Statement.StatementType))
-          ]);
-        End;
+        eResult := FParserStatements.RunStatement(Statement);
         If eResult = tsFailure Then
           Begin
             OutputEvent(FLastCommandError, []);
