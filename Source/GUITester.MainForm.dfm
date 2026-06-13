@@ -125,6 +125,8 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
       item
         Width = 50
       end>
+    ParentFont = True
+    UseSystemFont = False
   end
   object seOutput: TSynEdit
     Left = 0
@@ -172,6 +174,7 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
         Kind = gbkCustom
         Width = 20
       end>
+    Highlighter = shGeneral
     ScrollbarAnnotations = <
       item
         AnnType = sbaCarets
@@ -370,6 +373,7 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
   object shGeneral: TSynGeneralSyn
     Comments = [csPasStyle, csCStyle, csCPPStyle]
     DetectPreprocessor = False
+    StringDelim = sdSingleAndDoubleQuote
     Left = 88
     Top = 48
   end

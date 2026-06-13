@@ -3,8 +3,8 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.776
-  @Date    07 Jun 2026
+  @Version 5.907
+  @Date    13 Jun 2026
 
   @license
 
@@ -133,6 +133,8 @@ Const
   strHeightINIKey = 'Height';
   (** A constant to define the Current File INI Key. **)
   strCurrentFileINIKey = 'Current File';
+  (** A constant to define the Output Height INI Key. **)
+  strOutputHeightINIKey = 'Output Height';
 
 {$R *.dfm}
 
@@ -238,19 +240,24 @@ End;
 procedure TfrmTestGUIMainForm.FormCreate(Sender: TObject);
 
 Const
-  iLightGreen = $C0FFC0;
-  iLightRed = $C0C0FF;
-  iLightPurple = $FFC080;
-  iLightBlue = $FFC0C0;
+  iLightRed = $AA7FFF;
+  iLightGreen = $84E7BC;
+  iCream = $F0F9FF;
+  iLightPurple = $FFAA7F;
+  iLightYellow = $BCE0FF;
+  iBackground = $2D2F32;
 
 begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'FormCreate', tmoTiming);{$ENDIF}
   FGutterImageDict := TCollections.CreateDictionary<Integer, Integer>;
-  shGeneral.KeyAttri.Foreground := TColors.LightYellow;
-  shGeneral.SymbolAttri.Foreground := iLightGreen;
+  shGeneral.KeyAttri.Foreground := iLightYellow;
+  shGeneral.SymbolAttri.Foreground := clAqua;
   shGeneral.NumberAttri.Foreground := iLightRed;
   shGeneral.StringAttri.Foreground := iLightPurple;
-  shGeneral.CommentAttri.Foreground := iLightBlue;
+  shGeneral.CommentAttri.Foreground := iLightGreen;
+  shGeneral.IdentifierAttri.Foreground := iCream;
+  seCommands.Color := iBackground;
+  seOutput.Color := iBackground;
   LoadSettings();
   seCommandsStatusChange(Self, [scAll]);
   FParserStatements := TGTParserStatements.Create(
@@ -335,6 +342,7 @@ Begin
   Width := iniFile.ReadInteger(strSetupINISection, strWidthINIKey, Width);
   Height := iniFile.ReadInteger(strSetupINISection, strHeightINIKey, Height);
   FCurrentFile := iniFile.ReadString(strSetupINISection, strCurrentFileINIKey, '');
+  seOutput.Height := iniFile.ReadInteger(strSetupINISection, strOutputHeightINIKey, seOutput.Height);
   If FileExists(FCurrentFile) Then
     OpenFile(FCurrentFile);
 End;
@@ -441,7 +449,7 @@ Procedure TfrmTestGUIMainForm.ProcessStatements(Const Statements: IGTStatements)
 
 ResourceString
   strTestsCompleted = 'Tests completed in %1.0n ms!';
-  strException = '* Exception: %s';
+  strErrorMsg = 'Error: %s';
 
 Var
   eResult : TGTTestStatus;
@@ -475,9 +483,7 @@ Begin
   Except
     On E : EGTException Do
       Begin
-        OutputEvent('*'#13#10, []);
-        OutputEvent(strException, [E.Message]);
-        OutputEvent('*'#13#10, []);
+        OutputEvent(strErrorMsg, [E.Message]);
         EditorUpdateEvent(Statement.Line, tsFailure);
       End;
   End;
@@ -504,7 +510,8 @@ Begin
   iniFile.WriteInteger(strSetupINISection, strWidthINIKey, Width);
   iniFile.WriteInteger(strSetupINISection, strHeightINIKey, Height);
   iniFile.WriteString(strSetupINISection, strCurrentFileINIKey, FCurrentFile);
-  If FileExists(FCurrentFile) Then
+  iniFile.WriteInteger(strSetupINISection, strOutputHeightINIKey, seOutput.Height);
+If FileExists(FCurrentFile) Then
     seCommands.Lines.SaveToFile(FCurrentFile);
   iniFile.UpdateFile();
 End;

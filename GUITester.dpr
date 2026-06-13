@@ -3,8 +3,8 @@
   This module contains the main project data for the GUI tester application.
 
   @Author  David Hoyle
-  @Version 1.120
-  @Date    03 Jun 2026
+  @Version 1.121
+  @Date    13 Jun 2026
 
   @nocheck hardcodedstring
   @license
@@ -53,7 +53,7 @@ uses
 
 Begin
   Application.Initialize;
-  TStyleManager.TrySetStyle('Tablet Dark');
+  TStyleManager.TrySetStyle('Windows Modern SlateGray');
   Application.Title := 'GUI Tester';
   Application.CreateForm(TfrmTestGUIMainForm, frmTestGUIMainForm);
   Application.MainFormOnTaskBar := True;
