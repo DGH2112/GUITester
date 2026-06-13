@@ -25,6 +25,7 @@ Type
     Class Function WindowText(Const wHnd: THandle): String; Static;
     Class Function FindWindowByRegEx(Const strClassName, strWindowText : String) : HWND; Static;
     Class Function WindowModule(Const wHnd : HWND) : String; Static;
+    Class Function WindowInfo(Const hWNd : HWND) : String; Static;
   End;
 
 Implementation
@@ -148,6 +149,35 @@ Begin
   Result := StringOfChar(#0, iBufferLen);
   iLen := GetClassName(WHnd, PChar(Result), iBufferLen);
   SetLength(Result, iLen);
+End;
+
+(**
+
+  This method returns a formatted string containing the given Window Handle, the windows Class Name,
+  Window text and Module Name.
+
+  @precon  None.
+  @postcon A formatted string is returned containing the handle, class Name, Window Text and Module Name.
+
+  @param   hWNd as a HWND as a constant
+  @return  a String
+
+**)
+Class Function TGTFunctions.WindowInfo(Const hWNd: HWND): String;
+
+ResourceString
+  strHndClassTextBinary = '  Handle: %1.0n, Class: "%s", Text: "%s", Binary: "%s"';
+
+Begin
+  Result := Format(
+    strHndClassTextBinary,
+    [
+      Int(hWnd),
+      WindowClassName(hWnd),
+      WindowText(hWnd),
+      WindowModule(hWnd)
+    ]
+  )
 End;
 
 (**
