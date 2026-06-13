@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.502
-  @Date    09 Jun 2026
+  @Version 3.785
+  @Date    13 Jun 2026
 
   @license
 
@@ -91,6 +91,7 @@ Type
 Implementation
 
 uses
+  Winapi.Windows,
   System.SysUtils,
   System.TypInfo,
   CodeSiteLogging,
@@ -669,13 +670,25 @@ Begin
   CheckSymbol(')');
 End;
 
+(**
+
+  This method parses the ListTabOrder element of the grammar.
+
+  @precon  None.
+  @postcon The lists all the child windows in tab order that match the window with the given regular
+           expression.
+
+  @return  a Boolean
+
+**)
 Function TGTParser.ListTabOrder: Boolean;
 
 Const
   strLISTTABORDER = 'LISTTABORDER';
 
-var
+Var
   Statement: IGTStatement;
+  
 Begin
   Result := CompareText(strLISTTABORDER, Token.FText) = 0;
   If Not Result Then
@@ -856,15 +869,78 @@ End;
 **)
 Function TGTParser.SendKeys: Boolean;
 
+Type
+  TGTVirtualKey = Record
+    FName : String;
+    FCode : Integer;
+  End;
+  
+ResourceString
+  strInvalidVirtualKey = 'Invalid Virtual Key "%s"!';
+
 Const
   strSENDKEYS = 'SENDKEYS';
   strExtendedKeys : TArray<String> = [ 'ALT', 'CTRL', 'SHIFT' ];
+  astrVirtualKeys : Array[0..23] Of TGTVirtualKey = (
+    (FName: 'VK_BACK'; FCode: VK_BACK),
+    (FName: 'VK_TAB'; FCode: VK_TAB),
+    (FName: 'VK_RETURN'; FCode: VK_RETURN),
+    (FName: 'VK_ESCAPE'; FCode: VK_ESCAPE),
+    (FName: 'VK_END'; FCode: VK_END),
+    (FName: 'VK_HOME'; FCode: VK_HOME),
+    (FName: 'VK_LEFT'; FCode: VK_LEFT),
+    (FName: 'VK_UP'; FCode: VK_UP),
+    (FName: 'VK_RIGHT'; FCode: VK_RIGHT),
+    (FName: 'VK_DOWN'; FCode: VK_DOWN),
+    (FName: 'VK_INSERT'; FCode: VK_INSERT),
+    (FName: 'VK_DELETE'; FCode: VK_DELETE),
+    (FName: 'VK_F1'; FCode: VK_F1),
+    (FName: 'VK_F2'; FCode: VK_F2),
+    (FName: 'VK_F3'; FCode: VK_F3),
+    (FName: 'VK_F4'; FCode: VK_F4),
+    (FName: 'VK_F5'; FCode: VK_F5),
+    (FName: 'VK_F6'; FCode: VK_F6),
+    (FName: 'VK_F7'; FCode: VK_F7),
+    (FName: 'VK_F8'; FCode: VK_F8),
+    (FName: 'VK_F9'; FCode: VK_F9),
+    (FName: 'VK_F10'; FCode: VK_F10),
+    (FName: 'VK_F11'; FCode: VK_F11),
+    (FName: 'VK_F12'; FCode: VK_F12)
+  );
+
+  (**
+
+    This function searches linearly for the given Virtual Key in the list and if found returns its index
+    else returns -1.
+
+    @precon  None.
+    @postcon The index of the virtual key is returned if found else -1.
+
+    @param   strVK as a String as a constant
+    @return  an Integer
+
+  **)
+  Function FindVirtualKey(Const strVK : String) : Integer;
+
+  Var
+    i : Integer;
+
+  Begin
+    Result := -1;
+    For i := Low(astrVirtualKeys) To High(astrVirtualKeys) Do
+      If CompareText(strVK, astrVirtualKeys[i].FName) = 0 Then
+        Begin
+          Result := i;
+          Break;
+        End;
+  End;
 
 Var
   SendKeysString: TGTToken;
   Statement: IGTStatement;
   ExtendedKeys : IList<TGTToken>;
   T: TGTToken;
+  iIndex : Integer;
 
 Begin
   Result := CompareText(strSENDKEYS, Token.FText) = 0;
@@ -898,10 +974,13 @@ Begin
   MoveToNextNonCommentToken();
   // Text or a Character
   SendKeysString := Token;
-  If SendKeysString.FText = '#' Then
+  If SendKeysString.FTokenType = ttIdentifier Then
     Begin
-      MoveToNextNonCommentToken();
-      SendKeysString.Create(Char(Token.AsInteger), ttString, Token.FLine, Token.FColumn);
+      iIndex := FindVirtualKey(Token().FText);
+      If iIndex = -1 Then
+        Raise EGTParserException.CreateFmt(strInvalidVirtualKey, [Token.FText]);
+      SendKeysString.Create(Char(astrVirtualKeys[iIndex].FCode), ttIntegerNumber, Token.FLine,
+        Token.FColumn);
     End Else
       CheckString();
   MoveToNextNonCommentToken();

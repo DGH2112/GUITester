@@ -3,7 +3,7 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.907
+  @Version 5.923
   @Date    13 Jun 2026
 
   @license
@@ -246,6 +246,7 @@ Const
   iLightPurple = $FFAA7F;
   iLightYellow = $BCE0FF;
   iBackground = $2D2F32;
+  iActiveLine = $404000;
 
 begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'FormCreate', tmoTiming);{$ENDIF}
@@ -257,7 +258,9 @@ begin
   shGeneral.CommentAttri.Foreground := iLightGreen;
   shGeneral.IdentifierAttri.Foreground := iCream;
   seCommands.Color := iBackground;
+  seCommands.ActiveLineColor := iActiveLine;
   seOutput.Color := iBackground;
+  seOutput.ActiveLineColor := iActiveline;
   LoadSettings();
   seCommandsStatusChange(Self, [scAll]);
   FParserStatements := TGTParserStatements.Create(

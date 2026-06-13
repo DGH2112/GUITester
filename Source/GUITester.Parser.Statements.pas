@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 4.976
+  @Version 4.981
   @Author  David Hoyle
   @Date    13 Jun 2026
   
