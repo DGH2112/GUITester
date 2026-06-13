@@ -24,6 +24,7 @@ Type
     Class Function WindowClassName(Const wHnd: THandle): String; Static;
     Class Function WindowText(Const wHnd: THandle): String; Static;
     Class Function FindWindowByRegEx(Const strClassName, strWindowText : String) : HWND; Static;
+    Class Function WindowModule(Const wHnd : HWND) : String; Static;
   End;
 
 Implementation
@@ -147,6 +148,38 @@ Begin
   Result := StringOfChar(#0, iBufferLen);
   iLen := GetClassName(WHnd, PChar(Result), iBufferLen);
   SetLength(Result, iLen);
+End;
+
+(**
+
+  This methods returns the module name for the given windows handle.
+
+  @precon  None.
+  @postcon The module name of the given windows handle is returned.
+
+  @param   wHnd as a HWND as a constant
+  @return  a String
+
+**)
+Class Function TGTFunctions.WindowModule(Const wHnd: HWND): String;
+
+Var
+  iLen: Integer;
+  hProcess : HWND;
+  iProcessID : DWORD;
+
+Begin
+  GetWindowThreadProcessId(wHnd, @iProcessID);
+  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
+  Try
+    Result := StringOfChar(#0, MAX_PATH);
+    iLen := GetModuleFileNameEx(hProcess, 0, PChar(Result), MAX_PATH);
+    SetLength(Result, iLen);
+    If iLen = 0 Then
+      Result := SysErrorMessage(GetLastError);
+  Finally
+    CloseHandle(hProcess);
+  End;
 End;
 
 (**
