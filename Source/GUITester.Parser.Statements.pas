@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 4.492
+  @Version 4.976
   @Author  David Hoyle
-  @Date    07 Jun 2026
+  @Date    13 Jun 2026
   
 **)
 Unit GUITester.Parser.Statements;
@@ -81,6 +81,7 @@ Type
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListChildWindows(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListTabOrder(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -155,9 +156,6 @@ End;
 **)
 Function ListChildWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
 
-ResourceString
-  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
-
 Const
   iBufferLen = 1024;
 
@@ -186,14 +184,7 @@ Begin
   Finally
     CloseHandle(hProcess);
   End;
-  recChildData.FOutputEvent(
-    strHndClassText, [
-      hWnd,
-      strClassName,
-      strWindowText,
-      strExecutable
-    ]
-  );
+  recChildData.FOutputEvent(TGTFunctions.WindowInfo(hWnd), []);
 End;
 
 (**
@@ -213,9 +204,6 @@ End;
 
 **)
 Function ListWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
-
-ResourceString
-  strHndClassText = '  Handle: %d, Class: %s, Text: %s, Binary: %s';
 
 Const
   iBufferLen = 1024;
@@ -248,14 +236,7 @@ Begin
       Finally
         CloseHandle(hProcess);
       End;
-      recRegExData.FOutputEvent(
-        strHndClassText, [
-          hWnd,
-          strClassName,
-          strWindowText,
-          strExecutable
-        ]
-      );
+      recRegExData.FOutputEvent(TGTFunctions.WindowInfo(hWNd), []);
     End;
 End;
 
@@ -445,6 +426,7 @@ Begin
   FStatements.Add(stPositionWindow, PositionWindow);
   FStatements.Add(stListWindows, ListWindows);
   FStatements.Add(stListChildWindows, ListChildWindows);
+  FStatements.Add(stListTabOrder, ListTabOrder);
 End;
 
 (**
@@ -529,6 +511,53 @@ Begin
   EnumChildWindows(iWnd, @ListChildWindowCallBack, LPARAM(@recChildData));
   Result := tsSuccessful;
   FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method attempts to output the list of child windows in tab order for either top level window or
+  child window given in the statement.
+
+  @precon  Statement must be a valid instance.
+  @postcon Lists the child windows of the given window(s) in tab order.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.ListTabOrder(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strOutputTabOrder = 'Outputting Tab Order for Windows Matching "%s"';
+
+Const
+  iMainWindowIdx = 0;
+  iChildWindowIdx = 1;
+
+Var
+  iWnd: HWND;
+  iFirstCtrlWnd, iCtrlWnd : HWND;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  Try
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString);
+    If Statement.ParameterCount > iChildWindowIdx Then
+      iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd,
+        Statement.Parameter[iChildWindowIdx].FText.DeQuotedString, '');
+    FOutputEvent(strOutputTabOrder, [TGTFunctions.WindowClassName(iWnd)]);
+    iCtrlWnd := GetNextDlgTabItem(iWnd, 0, False);
+    iFirstCtrlWnd := iCtrlWnd;
+    Repeat
+      FOutputEvent(TGTFunctions.WindowInfo(iCtrlWnd), []);
+      iCtrlWnd := GetNextDlgTabItem(iWnd, iCtrlWnd, False);
+    Until iCtrlWnd = iFirstCtrlWnd;
+    Result := tsSuccessful;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
 End;
 
 (**
@@ -864,7 +893,13 @@ End;
 Function TGTParserStatements.TestClassCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 ResourceString
-  strFoundChildWindowsMatching = 'Found %d child windows matching "%s"';
+  strFoundChildWindowsMatching = 'Found %d child windows matching "%s->%s"';
+  strExpectingCount = 'Expecting a count of %d but found a count of %d!';
+
+Const
+  iMainWindowIdx = 0;
+  iIntCountIdx = 2;
+  iChildWindowIdx = 1;
 
 Var
   iWnd : HWND;
@@ -872,7 +907,7 @@ Var
   
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString, '');
   Try
     recRegExData.FOutputEvent := FOutputEvent;
     recRegExData.FCounter := 0;
@@ -881,15 +916,22 @@ Begin
       [roCompiled, roSingleLine, roIgnoreCase]
     );
     EnumChildWindows(iWnd, @FindChildWindowsCallBack, LPARAM(@recRegExData));
-    If recRegExData.FCounter > 0 Then
+    If recRegExData.FCounter = Statement.Parameter[iIntCountIdx].AsInteger Then
       Begin
         Result := tsSuccessful;
         FOutputEvent(strFoundChildWindowsMatching, [
           recRegExData.FCounter,
-          Statement.Parameter[1].FText.DeQuotedString
+          Statement.Parameter[iMainWindowIdx].FText.DeQuotedString,
+          Statement.Parameter[iChildWindowIdx].FText.DeQuotedString
         ])
       End Else
+      Begin
         Result := tsFailure;
+        FLastCommandError(Format(strExpectingCount, [
+          Statement.Parameter[iIntCountIdx].AsInteger,
+          recRegExData.FCounter
+        ]));
+      End;
     FEditorUpdateEvent(Statement.Line, Result);
   Except
     On E : ERegularExpressionError Do

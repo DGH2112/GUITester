@@ -3,7 +3,7 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 1.935
+  @Version 1.937
   @Date    07 Jun 2026
 
   @license
@@ -108,7 +108,8 @@ Type
     stBringToFront,
     stPositionWindow,
     stListWindows,
-    stListChildWindows
+    stListChildWindows,
+    stListTabOrder
   );
 
   (** An interface to define the attributes of a statement. **)

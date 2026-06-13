@@ -3,9 +3,9 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 1.636
+  @Version 2.250
   @Author  David Hoyle
-  @Date    06 Jun 2026
+  @Date    13 Jun 2026
   
 **)
 Unit GUITester.Functions;
@@ -13,6 +13,7 @@ Unit GUITester.Functions;
 Interface
 
 Uses
+  System.RegularExpressions,
   WinApi.Windows;
 
 Type
@@ -23,15 +24,19 @@ Type
   Public
     Class Function WindowClassName(Const wHnd: THandle): String; Static;
     Class Function WindowText(Const wHnd: THandle): String; Static;
-    Class Function FindWindowByRegEx(Const strClassName, strWindowText : String) : HWND; Static;
     Class Function WindowModule(Const wHnd : HWND) : String; Static;
+    Class Function FindWindowByRegEx(Const strClassName : String;
+      Const strWindowText : String = '') : HWND; Static;
+    Class Function FindChildWindowByRegEx(Const iWnd : HWND; Const strClassName : String;
+      Const strWindowText : String = '') : HWND; Static;
     Class Function WindowInfo(Const hWNd : HWND) : String; Static;
+    Class Function Match(Const RegEx : TRegEx; Const strText : String) : Boolean; Static;
   End;
 
 Implementation
 
 uses
-  System.RegularExpressions,
+  Winapi.PsAPI,
   System.RegularExpressionsCore,
   System.SysUtils,
   GUITester.Interfaces;
@@ -75,12 +80,56 @@ Begin
   recFindWindow := Pointer(lParam);
   strClassName := TGTFunctions.WindowClassName(hWnd);
   strWindowtext := TGTFunctions.WindowText(hWnd);
-  If recFindWindow.FClassName.IsMatch(strClassName) And
-     recFindWindow.FWindowText.IsMatch(strWindowText) Then
-    Begin
-      recFindWindow.FWindowHnd := hWnd;
-      Result := False;
-    End;
+  If TGTFunctions.Match(recFindWindow.FClassName, strClassName) Then
+    If TGTFunctions.Match(recFindWindow.FWindowText, strWindowText) Then
+      Begin
+        recFindWindow.FWindowHnd := hWnd;
+        Result := False;
+      End;
+End;
+
+(**
+
+  This method attempts to find a child level window of the given window handle that matches the class 
+  name and window text regular expressions passed.
+
+  @precon  None.
+  @postcon The window handle is returned if found else an exception is raised.
+
+  @param   iWnd          as a HWND as a constant
+  @param   strClassName  as a String as a constant
+  @param   strWindowText as a String as a constant
+  @return  a HWND
+
+**)
+Class Function TGTFunctions.FindChildWindowByRegEx(Const iWnd : HWND; Const strClassName : String;
+  Const strWindowText: String = ''): HWND;
+
+ResourceString
+  strFindChildWindowByRegExFailed = 'FindChildWindowByRegEx failed (%d, %s, %s)';
+
+Var
+  recFindWindow : TGTFindWindowRec;
+  
+Begin
+  Try
+    If strClassName.Length > 0 Then
+      recFindWindow.FClassName := TRegEx.Create(strClassName, [roIgnoreCase, roSingleLine, roCompiled])
+    Else
+      recFindWindow.FClassName := TRegEx.Create('.', [roIgnoreCase, roSingleLine, roCompiled]);
+    If strWindowText.Length > 0 Then
+      recFindWindow.FWindowText := TRegEx.Create(strWindowText, [roIgnoreCase, roSingleLine, roCompiled])
+    Else
+      recFindWindow.FWindowText := TRegEx.Create('.', [roIgnoreCase, roSingleLine, roCompiled]);
+    recFindWindow.FWindowHnd := 0;
+    EnumChildWindows(iWnd, @FindWindowByRegExCallBack, LPARAM(@recFindWindow));
+    Result := recFindWindow.FWindowHnd;
+    If Result = 0 Then
+      Raise EGTException.CreateFmt(strFindChildWindowByRegExFailed, [iWnd, strClassName, strWindowText]);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
 End;
 
 (**
@@ -96,7 +145,8 @@ End;
   @return  a HWND
 
 **)
-Class Function TGTFunctions.FindWindowByRegEx(Const strClassName, strWindowText: String): HWND;
+Class Function TGTFunctions.FindWindowByRegEx(Const strClassName : String;
+  Const strWindowText: String = ''): HWND;
 
 ResourceString
   strFindWindowByRegExFailed = 'FindWindowByRegEx failed (%s, %s)';
@@ -123,6 +173,28 @@ Begin
     On E : ERegularExpressionError Do
       Raise EGTException.Create(E.Message);
   End;
+End;
+
+(**
+
+  This method returns true if the given text is not null and matches the regular expression or the given
+  text is null (no match can be performed).
+
+  @precon  RegEx must be a valid Regular Expression.
+  @postcon If there is a match or the text is empty, true is returned.
+
+  @param   RegEx   as a TRegEx as a constant
+  @param   strText as a String as a constant
+  @return  a Boolean
+
+**)
+Class Function TGTFunctions.Match(Const RegEx: TRegEx; Const strText: String): Boolean;
+
+Begin
+  Result := (
+    ((strText.Length > 0) And RegEx.IsMatch(strText)) Or
+    (strText.Length = 0)
+    );
 End;
 
 (**

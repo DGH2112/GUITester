@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.371
-  @Date    07 Jun 2026
+  @Version 3.502
+  @Date    09 Jun 2026
 
   @license
 
@@ -82,6 +82,7 @@ Type
     Function  PositionWindow() : Boolean;
     Function  ListWindows() : Boolean;
     Function  ListChildWindows() : Boolean;
+    Function  ListTabOrder() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -668,6 +669,34 @@ Begin
   CheckSymbol(')');
 End;
 
+Function TGTParser.ListTabOrder: Boolean;
+
+Const
+  strLISTTABORDER = 'LISTTABORDER';
+
+var
+  Statement: IGTStatement;
+Begin
+  Result := CompareText(strLISTTABORDER, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stListTabOrder, Token.Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  If Token().FText = ',' Then
+    Begin
+      MoveToNextNonCommentToken();
+      CheckString();
+      Statement.AddParameter(Token());
+      MoveToNextNonCommentToken();
+    End;
+  CheckSymbol(')');
+End;
+
 (**
 
   This method parses the ListWindows element of the grammar.
@@ -911,7 +940,8 @@ Begin
       BringToFront() Or
       PositionWindow() Or
       ListWindows() Or
-      ListChildWindows()
+      ListChildWindows() Or
+      ListTabOrder()
     ) Do
     Begin
       MoveToNextNonCommentToken();
@@ -959,6 +989,11 @@ Begin
   CheckSymbol(',');
   MoveToNextNonCommentToken();
   CheckString();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckInteger();
   Statement.AddParameter(Token());
   MoveToNextNonCommentToken();
   CheckSymbol(')');
