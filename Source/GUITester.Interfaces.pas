@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 1.937
-  @Date    07 Jun 2026
+  @Version 2.188
+  @Date    14 Jun 2026
 
   @license
 
@@ -60,6 +60,7 @@ Type
     Function AsString() : String;
     Function DeQuoteString : String;
     Function AsInteger : Integer;
+    Function DeQuote() : TGTToken;
   End;
   
   (** An interface to define the attribute of the parser. **)
@@ -112,6 +113,55 @@ Type
     stListTabOrder
   );
 
+  (** An interface to define the behaviour of a parameter (single or multiple tokens) **)
+  IGTParameter = Interface
+  ['{AD95ACC4-030F-4A34-A095-62971573D185}']
+    // Getter and Setters
+    Function  GetText : String;
+    Function  GetInteger : Integer;
+    Function  GetTokenType : TGTTokenType;
+    Function  GetCount : Integer;
+    Function  GetToken(Const iIndex : Integer) : TGTToken;
+    // Methods
+    // Properties
+    (**
+      This property returns the text of the first token in the parameter.
+      @precon  None.
+      @postcon Returns the text of the first token in the parameter.
+      @return  a String
+    **)
+    Property Text : String Read GetText;
+    (**
+      This property returns the first token converted to an Integer.
+      @precon  None.
+      @postcon Returns the first token converted to an Integer.
+      @return  an Integer
+    **)
+    Property Integer : Integer Read GetInteger;
+    (**
+      This property returns the token type of the first token.
+      @precon  None.
+      @postcon Returns the token type of the first token.
+      @return  a TGTTokenType
+    **)
+    Property TokenType : TGTTokenType Read GetTokenType;
+    (**
+      This property returns the number of token in the parameter.
+      @precon  None.
+      @postcon Returns the number of token in the parameter.
+      @return  an Integer
+    **)
+    Property Count : Integer Read GetCount;
+    (**
+      This property returns the indexed token in the parameter.
+      @precon  iIndex must be a valid index between 0 and Count - 1.
+      @postcon Returns the indexed token in the parameter.
+      @param   iIndex as an Integer as a constant
+      @return  a TGTToken
+    **)
+    Property Token[Const iIndex : Integer] : TGTToken Read GetToken; Default;
+  End;
+
   (** An interface to define the attributes of a statement. **)
   IGTStatement = Interface
   ['{99029B50-CD45-47DC-ADE1-82971EFBD98B}']
@@ -119,10 +169,11 @@ Type
     Function  GetStatementType : TGTStatementType;
     Function  GetParameterCount : Integer;
     Function  GetLine : Integer;
-    Function  GetParameter(Const iIndex : Integer) : TGTToken;
+    Function  GetParameter(Const iIndex : Integer) : IGTParameter;
     Function  GetAsString : String;
     // Methods
-    Procedure AddParameter(Const Parameter : TGTToken);
+    Procedure AddParameter(Const Parameter : TGTToken); Overload;
+    Procedure AddParameter(Const Parameter : TArray<TGTToken>); Overload;
     // Properties
     (**
       This property returns the statement type associated with the statement.
@@ -143,9 +194,9 @@ Type
       @precon  iIndex must be a valid index between 0 and ParameterCount - 1.
       @postcon Returns the token representing the indexed parameter.
       @param   iIndex as an Integer as a constant
-      @return  a TGTToken
+      @return  a IGTParameter
     **)
-    Property Parameter[Const iIndex : Integer] : TGTToken Read GetParameter; Default;
+    Property Parameter[Const iIndex : Integer] : IGTParameter Read GetParameter; Default;
     (**
       This property returns the starting line number of the Statement in the editor.
       @precon  None.
@@ -267,6 +318,22 @@ Begin
   FTokenType := eTokenType;
   FLine := iLine;
   FColumn := iColumn;
+End;
+
+(**
+
+  This method returns a copy of the token with the all quotes removed from the text.
+
+  @precon  None.
+  @postcon Returns a copy of the token with the all quotes removed from the text.
+
+  @return  a TGTToken
+
+**)
+Function TGTToken.DeQuote: TGTToken;
+
+Begin
+  Result.Create(FText.DeQuotedString, FTokenType, FLine, FColumn);
 End;
 
 (**

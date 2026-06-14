@@ -4,8 +4,8 @@
   associated with a single statement in the language.
 
   @Author  David Hoyle
-  @Version 1.330
-  @Date    07 Jun 2026
+  @Version 1.428
+  @Date    14 Jun 2026
 
   @license
 
@@ -43,15 +43,16 @@ Type
   Strict Private
     FStatementType : TGTStatementType;
     FLine          : Integer;
-    FParameters    : IList<TGTToken>;
+    FParameters    : IList<IGTParameter>;
   Strict Protected
     // IGTStatement
     Function  GetStatementType : TGTStatementType;
     Function  GetParameterCount : Integer;
     Function  GetLine : Integer;
-    Function  GetParameter(Const iIndex : Integer) : TGTToken;
+    Function  GetParameter(Const iIndex : Integer) : IGTParameter;
     Function  GetAsString : String;
-    Procedure AddParameter(Const Parameter : TGTToken);
+    Procedure AddParameter(Const Parameter : TGTToken); Overload;
+    Procedure AddParameter(Const Parameter : TArray<TGTToken>); Overload;
   Public
     Constructor Create(Const eStatementType : TGTStatementType; Const iLine : Integer);
   End;
@@ -60,7 +61,24 @@ Implementation
 
 uses
   System.TypInfo,
-  System.SysUtils;
+  System.SysUtils,
+  GUITester.Parameter;
+
+(**
+
+  This method adds a parameter to the statement consisting of an array of Tokens.
+
+  @precon  None.
+  @postcon A parameter is added consisting of an array of tokens.
+
+  @param   Parameter as a TArray<TGTToken> as a constant
+
+**)
+Procedure TGTStatement.AddParameter(Const Parameter: TArray<TGTToken>);
+
+Begin
+  FParameters.Add(TGTParameter.Create(Parameter));
+End;
 
 (**
 
@@ -75,7 +93,7 @@ uses
 Procedure TGTStatement.AddParameter(Const Parameter: TGTToken);
 
 Begin
-  FParameters.Add(Parameter);
+  FParameters.Add(TGTParameter.Create(Parameter));
 End;
 
 (**
@@ -94,7 +112,7 @@ Constructor TGTStatement.Create(Const eStatementType : TGTStatementType; Const i
 Begin
   FStatementType := eStatementType;
   FLine := iLine;
-  FParameters := TCollections.CreateList<TGTToken>;
+  FParameters := TCollections.CreateList<IGTParameter>;
 End;
 
 (**
@@ -118,7 +136,7 @@ Begin
     Begin
       If strParameters.Length > 0 Then
         strParameters := strParameters + ', ';
-      strParameters := strParameters + FParameters[i].FText;
+      strParameters := strParameters + FParameters[i].Text;
     End;
   Result := Format('%s(%s)',  [
     GetEnumName(TypeInfo(TGTStatementType), Ord(FStatementType)),
@@ -150,10 +168,10 @@ End;
   @postcon Returns the indexed parameter from the list.
 
   @param   iIndex as an Integer as a constant
-  @return  a TGTToken
+  @return  a IGTParameter
 
 **)
-Function TGTStatement.GetParameter(Const iIndex: Integer): TGTToken;
+Function TGTStatement.GetParameter(Const iIndex: Integer): IGTParameter;
 
 Begin
   Result := FParameters[iIndex];

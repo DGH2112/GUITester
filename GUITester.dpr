@@ -47,7 +47,8 @@ uses
   GUITester.Parser in 'Source\GUITester.Parser.pas',
   GUITester.Statement in 'Source\GUITester.Statement.pas',
   GUITester.Functions in 'Source\GUITester.Functions.pas',
-  GUITester.Parser.Statements in 'Source\GUITester.Parser.Statements.pas';
+  GUITester.Parser.Statements in 'Source\GUITester.Parser.Statements.pas',
+  GUITester.Parameter in 'Source\GUITester.Parameter.pas';
 
 {$R *.res}
 

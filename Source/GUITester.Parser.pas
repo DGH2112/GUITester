@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.799
+  @Version 3.920
   @Date    14 Jun 2026
 
   @license
@@ -147,7 +147,7 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  WindowClass := Token();
+  WindowClass := Token().DeQuote();
   MoveToNextNonCommentToken();
   CheckSymbol(')');
   Statement := Add(stBringToFront, T.Fline);
@@ -612,19 +612,19 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  EXEFileName := Token;
+  EXEFileName := Token.DeQuote;
   MoveToNextNonCommentToken();
   If Token.FText = ',' Then
     Begin
       MoveToNextNonCommentToken();
       CheckString();
-      Directory := Token;
+      Directory := Token.DeQuote;
       MoveToNextNonCommentToken();
       If Token.FText = ',' Then
         Begin
           MoveToNextNonCommentToken();
           CheckString();
-          CommandLine := Token;
+          CommandLine := Token.DeQuote;
           MoveToNextNonCommentToken();
         End Else
           CommandLine.Create('', ttUnknown, 0, 0);
@@ -665,7 +665,7 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(')');
 End;
@@ -698,13 +698,13 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   If Token().FText = ',' Then
     Begin
       MoveToNextNonCommentToken();
       CheckString();
-      Statement.AddParameter(Token());
+      Statement.AddParameter(Token().DeQuote);
       MoveToNextNonCommentToken();
     End;
   CheckSymbol(')');
@@ -737,7 +737,7 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(')');
 End;
@@ -808,7 +808,7 @@ Begin
   MoveToNextNonCommentToken();
   // Window Class
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();
@@ -863,6 +863,8 @@ End;
   @precon  None.
   @postcon The grammar for SENDKEYS is parse and a statement pushed onto the statement list else
            if the parsing fails, a parser exception is raised.
+
+  @nometric toxicity
 
   @return  a Boolean
 
@@ -936,11 +938,10 @@ Const
   End;
 
 Var
-  SendKeysString: TGTToken;
   Statement: IGTStatement;
-  ExtendedKeys : IList<TGTToken>;
-  T: TGTToken;
   iIndex : Integer;
+  ExtendedKeys : IList<TGTToken>;
+  VKTokens : IList<TGTToken>;
 
 Begin
   Result := CompareText(strSENDKEYS, Token.FText) = 0;
@@ -948,12 +949,13 @@ Begin
     Exit;
   Statement := Add(stSendKeys, Token().FLine);
   ExtendedKeys := TCollections.CreateList<TGTToken>;
+  VKTokens := TCollections.CreateList<TGTToken>;
   MoveToNextNonCommentToken();;
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   // Class Name
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();
@@ -969,25 +971,35 @@ Begin
       MoveToNextNonCommentToken();
     End;
   CheckSymbol(']');
+  Statement.AddParameter(ExtendedKeys.ToArray);
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();
   // Text or a Character
-  SendKeysString := Token;
-  If SendKeysString.FTokenType = ttIdentifier Then
+  If Token().FText = '[' Then
     Begin
-      iIndex := FindVirtualKey(Token().FText);
-      If iIndex = -1 Then
-        Raise EGTParserException.CreateFmt(strInvalidVirtualKey, [Token.FText]);
-      SendKeysString.Create(astrVirtualKeys[iIndex].FCode.ToString, ttIntegerNumber, Token.FLine,
-        Token.FColumn);
+      Repeat
+        MoveToNextNonCommentToken();
+        iIndex := FindVirtualKey(Token().FText);
+        If iIndex = -1 Then
+          Raise EGTParserException.CreateFmt(strInvalidVirtualKey, [Token.FText]);
+        VKTokens.Add(TGTToken.Create(astrVirtualKeys[iIndex].FCode.ToString, ttIntegerNumber,
+          Token.FLine, Token.FColumn));
+        MoveToNextNonCommentToken();
+      Until Token().FText <> ',';
+      Statement.AddParameter(VKTokens.ToArray);
     End Else
+    Begin
       CheckString();
+      Statement.AddParameter(Token().DeQuote);
+    End;
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckInteger();
+  Statement.AddParameter(Token);
   MoveToNextNonCommentToken();
   CheckSymbol(')');
-  Statement.AddParameter(SendKeysString);
-  For T In ExtendedKeys Do
-    Statement.AddParameter(T);
 End;
 
 (**
@@ -1063,12 +1075,12 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();
   CheckString();
-  Statement.AddParameter(Token());
+  Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();
@@ -1206,7 +1218,7 @@ Begin
   CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
-  WindowClass := Token();
+  WindowClass := Token().DeQuote;
   MoveToNextNonCommentToken();
   CheckSymbol(',');
   MoveToNextNonCommentToken();

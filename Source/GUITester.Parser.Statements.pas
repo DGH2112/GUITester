@@ -2,10 +2,31 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 5.972
+  @Version 6.175
   @Author  David Hoyle
   @Date    14 Jun 2026
   
+  @license
+
+    GUI Tester is a Win64 GUI application in which you can write statements
+    to mimic a users interaction with an application and test that certain
+    operations perform as expected.
+    
+    Copyright (C) 2026  David Hoyle (https://github.com/DGH2112/GUITester/)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 **)
 Unit GUITester.Parser.Statements;
 
@@ -279,7 +300,7 @@ Var
 
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text.DeQuotedString);
   If iWnd > 0 Then
     Begin
       Win32Check(BringWindowToTop(iWnd));
@@ -287,7 +308,7 @@ Begin
     End Else
     Begin
       Result := tsFailure;
-      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
+      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].Text.DeQuotedString]));
     End;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
@@ -316,14 +337,14 @@ Var
   boolResult: Boolean;
   
 Begin
-  FExecutable := Statement.Parameter[0].DequoteString;
+  FExecutable := Statement.Parameter[0].Text;
   boolResult := FileExists(FExecutable);
   If Not boolResult Then
     Raise EGTException.CreateFmt(strExeDoesNotExist, [FExecutable]);
   // Check Directory
   If Statement.ParameterCount >= iSecondParam Then
     Begin
-      FDirectory := Statement.Parameter[1].DeQuoteString;
+      FDirectory := Statement.Parameter[1].Text;
       boolResult := DirectoryExists(FDirectory);
       If Not boolResult Then
         Raise EGTException.CreateFmt(strDirDoesNotExist, [FDirectory]);
@@ -331,7 +352,7 @@ Begin
       FDirectory := ExtractFilePath(FExecutable);
   // Get the Command Line
   If Statement.ParameterCount = iThirdParam Then
-    FCommandLine := Statement.Parameter[iSecondParam].DeQuoteString;
+    FCommandLine := Statement.Parameter[iSecondParam].Text;
 End;
 
 (**
@@ -358,7 +379,7 @@ Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'CheckProcessEndCommand', tmoTiming);{$ENDIF}
   Result := tsRunning;
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iResult := WaitForSingleObject(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
+  iResult := WaitForSingleObject(FProcessInfo.hProcess, Statement.Parameter[0].Integer);
   If iResult = WAIT_OBJECT_0 Then
     Result := tsSuccessful
   Else If iResult = WAIT_TIMEOUT Then
@@ -486,7 +507,7 @@ Var
   
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
   FOutputEvent(strOutputtingChildWindows, [TGTFunctions.WindowClassName(iWnd)]);
   recChildData.FParentWHnd := iWnd;
   recChildData.FOutputEvent := FOutputEvent;
@@ -523,10 +544,10 @@ Var
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Try
-    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString);
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
     If Statement.ParameterCount > iChildWindowIdx Then
       iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd,
-        Statement.Parameter[iChildWindowIdx].FText.DeQuotedString);
+        Statement.Parameter[iChildWindowIdx].Text);
     FOutputEvent(strOutputTabOrder, [TGTFunctions.WindowClassName(iWnd)]);
     iCtrlWnd := GetNextDlgTabItem(iWnd, 0, False);
     iFirstCtrlWnd := iCtrlWnd;
@@ -565,8 +586,8 @@ Var
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Try
-    FOutputEvent(strOutputTopLvlWnd, [Statement.Parameter[0].FText.DeQuotedString]);
-    recRegExData.Create(Statement.Parameter[0].FText.DeQuotedString);
+    FOutputEvent(strOutputTopLvlWnd, [Statement.Parameter[0].Text]);
+    recRegExData.Create(Statement.Parameter[0].Text);
     recRegExData.FOutputEvent := FOutputEvent;
     EnumWindows(@ListWindowCallBack, LPARAM(@recRegExData));
     Result := tsSuccessful;
@@ -601,22 +622,22 @@ Var
 
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
   If iWnd > 0 Then
     Begin
       Win32Check(MoveWindow(
         iWnd,
-        Statement.Parameter[iLeftParam].AsInteger, // Left
-        Statement.Parameter[iTopParam].AsInteger, // Top
-        Statement.Parameter[iWidthParam].AsInteger, // Width
-        Statement.Parameter[iHeightParam].AsInteger, // Height
+        Statement.Parameter[iLeftParam].Integer, // Left
+        Statement.Parameter[iTopParam].Integer, // Top
+        Statement.Parameter[iWidthParam].Integer, // Width
+        Statement.Parameter[iHeightParam].Integer, // Height
         False
       ));
       Result := tsSuccessful;
     End Else
     Begin
       Result := tsFailure;
-      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
+      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].Text]));
     End;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
@@ -718,7 +739,7 @@ Function TGTParserStatements.SendKeysCommand(Const Statement: IGTStatement): TGT
 
   Begin
     If GetForegroundWindow <> iWnd Then
-      Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].FText.DeQuotedString,
+      Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].Text,
         TGTFunctions.WindowClassName(GetForegroundWindow)]);
     ZeroMemory(@Inputs, SizeOf(Inputs));
     Inputs.Itype := INPUT_KEYBOARD;
@@ -739,29 +760,35 @@ Const
   strSHIFTKey = 'SHIFT';
   strALTKey = 'ALT';
   iLowByte = $00FF;
+  iClassNameIdx = 0;
+  iExtendedKeysIdx = 1;
+  iTextVKeysIdx = 2;
+  iWaitTimeIdx = 3;
 
 Var
   i: Integer;
   iWnd : HWND;
-  iParameter: Integer;
+  iToken: Integer;
   iResult : Short;
   ShiftStates : TShiftState;
   strText : String;
+  P : IGTParameter;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
   FEditorUpdateEvent(Statement.Line, tsRunning);
   ShiftStates := [];
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iClassNameIdx].Text);
   If iWnd > 0 Then
     Begin
       // Find Shift States - Start at 1 as parameter 0 is the text to output.
-      For iParameter := 1 To Statement.ParameterCount -1 Do
-        If CompareText(Statement.Parameter[iParameter].FText, strCTRLKey) = 0 Then
+      P := Statement.Parameter[iExtendedKeysIdx];
+      For iToken := 0 To P.Count - 1 Do
+        If CompareText(P.Token[iToken].FText, strCTRLKey) = 0 Then
           Include(ShiftStates, ssCtrl)
-        Else If CompareText(Statement.Parameter[iParameter].FText, strSHIFTKey) = 0 Then
+        Else If CompareText(P.Token[iToken].FText, strSHIFTKey) = 0 Then
           Include(ShiftStates, ssShift)
-        Else If CompareText(Statement.Parameter[iParameter].FText, strALTKey) = 0 Then
+        Else If CompareText(P.Token[iToken].FText, strALTKey) = 0 Then
           Include(ShiftStates, ssAlt);
       // Extended keys down
       If ssCtrl In ShiftStates Then
@@ -771,15 +798,19 @@ Begin
       If ssAlt In ShiftStates Then
         SendKeys(iWnd, WM_KEYDOWN, VK_MENU);
       // Key strokes
-      Case Statement.Parameter[1].FTokenType Of
+      Case Statement.Parameter[iTextVKeysIdx].TokenType Of
         ttIntegerNumber:
           Begin
-            iResult := Statement.Parameter[1].AsInteger;
-            SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte, True);
-            SendKeys(iWnd, WM_KEYUP, iResult And iLowByte, True);
+            P := Statement.Parameter[iTextVKeysIdx];
+            For iToken := 0 To P.Count - 1 Do
+              Begin
+                iResult := P.Token[iToken].AsInteger;
+                SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte, True);
+                SendKeys(iWnd, WM_KEYUP, iResult And iLowByte, True);
+              End;
           End
       Else
-        strText := Statement.Parameter[1].FText.DeQuotedString;
+        strText := Statement.Parameter[iTextVKeysIdx].Text;
         For i := 1 To strText.Length Do
           Begin
             iResult := VkKeyScan(strText[i]);
@@ -797,12 +828,13 @@ Begin
         SendKeys(iWnd, WM_KEYUP, VK_SHIFT);
       If ssCtrl In ShiftStates Then
         SendKeys(iWnd, WM_KEYUP, VK_CONTROL);
+      Sleep(Statement.Parameter[iWaitTimeIdx].Integer);
       Result := tsSuccessful;
-      End Else
-      Begin
-        Result := tsFailure;
-        FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].FText.DeQuotedString]));
-      End;
+    End Else
+    Begin
+      Result := tsFailure;
+      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].Text]));
+    End;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -920,25 +952,25 @@ Var
   
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
   Try
-    recRegExData.Create(Statement.Parameter[iChildWindowIdx].FText.DeQuotedString);
+    recRegExData.Create(Statement.Parameter[iChildWindowIdx].Text);
     recRegExData.FOutputEvent := FOutputEvent;
     recRegExData.FCounter := 0;
     EnumChildWindows(iWnd, @FindChildWindowsCallBack, LPARAM(@recRegExData));
-    If recRegExData.FCounter = Statement.Parameter[iIntCountIdx].AsInteger Then
+    If recRegExData.FCounter = Statement.Parameter[iIntCountIdx].Integer Then
       Begin
         Result := tsSuccessful;
         FOutputEvent(strFoundChildWindowsMatching, [
           recRegExData.FCounter,
-          Statement.Parameter[iMainWindowIdx].FText.DeQuotedString,
-          Statement.Parameter[iChildWindowIdx].FText.DeQuotedString
+          Statement.Parameter[iMainWindowIdx].Text,
+          Statement.Parameter[iChildWindowIdx].Text
         ])
       End Else
       Begin
         Result := tsFailure;
         FLastCommandError(Format(strExpectingCount, [
-          Statement.Parameter[iIntCountIdx].AsInteger,
+          Statement.Parameter[iIntCountIdx].Integer,
           recRegExData.FCounter
         ]));
       End;
@@ -965,7 +997,7 @@ Function TGTParserStatements.WaitCommand(Const Statement: IGTStatement): TGTTest
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitCommand', tmoTiming);{$ENDIF}
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  Sleep(Statement.Parameter[0].AsInteger);
+  Sleep(Statement.Parameter[0].Integer);
   Result := tsSuccessful;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
@@ -995,7 +1027,7 @@ Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForIdleCommand', tmoTiming);{$ENDIF}
   Result := tsRunning;
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iResult := WaitForInputIdle(FProcessInfo.hProcess, Statement.Parameter[0].AsInteger);
+  iResult := WaitForInputIdle(FProcessInfo.hProcess, Statement.Parameter[0].Integer);
   {
   EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL
   BEGIN
@@ -1056,12 +1088,12 @@ Begin
   iStart := GetTickCount64;
   WindowPlacement.showCmd := SW_HIDE;
   Repeat
-    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
     If iWnd > 0 Then
       GetWindowPlacement(iWnd, WindowPlacement);
     Sleep(iDefaultWaitInterval);
   Until ((iWnd > 0) And (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE])) Or
-    (GetTickCount64 - iStart > Statement.Parameter[1].AsInteger);
+    (GetTickCount64 - iStart > Statement.Parameter[1].Integer);
   If iWnd > 0 Then
     Result := tsSuccessful
   Else
