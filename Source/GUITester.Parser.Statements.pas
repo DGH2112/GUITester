@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 4.981
+  @Version 5.431
   @Author  David Hoyle
-  @Date    13 Jun 2026
+  @Date    14 Jun 2026
   
 **)
 Unit GUITester.Parser.Statements;
@@ -15,7 +15,8 @@ uses
   Winapi.Windows,
   System.RegularExpressions,
   Spring.Collections,
-  GUITester.Interfaces;
+  GUITester.Interfaces,
+  GUITester.Functions;
 
 Type
   (** A record to pass to the ENUMWINDOW call back functions to send a Process ID and return a window
@@ -31,28 +32,8 @@ Type
   TGTEditorUpdateEvent = Procedure(Const iLine : Integer; Const eStatus : TGTTestStatus) Of Object;
   (** An event signature for feeding back the last command error. **)
   TGTLastCommandError = Procedure(Const strMsg : String) of Object;
-  (** An event signature for outputting event information to the main application. **)
-  TGTOutputEvent = Procedure(Const strMsg : String; Const Args : Array Of Const) Of Object;
-  
-  (** A record that provide a regular expression to text window class name and text against. **)
-  TGTRegExData = Record
-    FRegEx       : TRegEx;
-    FOutputEvent : TGTOutputEvent;
-    FCounter     : Integer;
-  End;
-  (** A pointer to the above record. **)
-  PGTRegExData = ^TGTRegExData;
-
   (** A method signature for all statements which can be run. **)
   TGTStatementSignature = Function(Const Statement : IGTStatement) : TGTTestStatus Of Object;
-
-  (** A record to pass data to the ENUMCHILDWINDOWS call back. **)
-  TGTChildData = Record
-    FParentWHnd  : HWND;
-    FOutputEvent : TGTOutputEvent;
-  End;
-  (** A pointer to the above record. **)
-  PGTChildData = ^TGTChildData;
 
   (** A class which implements the IGTParserStatements interface. **)
   TGTParserStatements = Class(TInterfacedObject, IGTParserStatements)
@@ -102,8 +83,7 @@ uses
   System.Classes,
   System.Diagnostics,
   System.RegularExpressionsCore,
-  System.TypInfo,
-  GUITester.Functions;
+  System.TypInfo;
 
 ResourceString
   (** A resource string message for not being able to find a window with a specific class name. **)
@@ -114,7 +94,7 @@ ResourceString
   This method checks if the child window handle has either a class name or window text that matches
   the given regular expression.
 
-  @precon  lParam must be a pointer to the TGTRegExData record
+  @precon  lParam must be a pointer to the PGTFindWindowRec record
   @postcon If there is a match the handle, class name and window text are output.
 
   @nocheck MissingCONSTInParam
@@ -128,13 +108,13 @@ ResourceString
 Function FindChildWindowsCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
 
 Var
-  recRegExData : PGTRegExData;
+  recRegExData : PGTFindWindowRec;
 
 Begin
   Result := True;
   recRegExData := Pointer(lParam);
-  If recRegExData.FRegEx.IsMatch(TGTFunctions.WindowClassName(hWNd)) Or 
-     recRegExData.FRegEx.IsMatch(TGTFunctions.WindowText(hWNd)) Then
+  If TGTFunctions.Match(recRegExData.FClassName, TGTFunctions.WindowClassName(hWnd)) And 
+     TGTFunctions.Match(recRegExData.FWindowText, TGTFunctions.WindowText(hWnd)) Then
     Inc(recRegExData.FCounter);
 End;
 
@@ -143,7 +123,7 @@ End;
   This method checks if the child window handle has either a class name or window text that matches
   the given regular expression.
 
-  @precon  lParam must be a pointer to the TGTRegExData record
+  @precon  lParam must be a pointer to the PGTFindWindowRec record
   @postcon If there is a match the handle, class name and window text are output.
 
   @nocheck MissingCONSTInParam
@@ -163,7 +143,7 @@ Var
   hProcess : HINST;
   iLen: Integer;
   iProcessID : DWORD;
-  recChildData : PGTChildData;
+  recChildData : PGTFindWindowRec;
   strClassName, strWindowText : String;
   strExecutable : String;
 
@@ -192,7 +172,7 @@ End;
   This method checks if the top level window handle has either a class name or window text that matches
   the given regular expression.
 
-  @precon  lParam must be a pointer to the TGTRegExData record
+  @precon  lParam must be a pointer to the PGTFindWindowRec record
   @postcon If there is a match the handle, class name and window text are output.
 
   @nocheck MissingCONSTInParam
@@ -212,7 +192,7 @@ Var
   hProcess : HINST;
   iLen: Integer;
   iProcessID : DWORD;
-  recRegExData : PGTRegExData;
+  recRegExData : PGTFindWindowRec;
   strClassName, strWindowText : String;
   strExecutable : String;
 
@@ -221,8 +201,8 @@ Begin
   recRegExData := Pointer(lParam);
   strClassName := TGTFunctions.WindowClassName(hWnd);
   strWindowText := TGTFunctions.WindowText(hWnd);
-  If recRegExData.FRegEx.IsMatch(strClassName) Or
-     recRegExData.FRegEx.IsMatch(strWindowText) Then
+  If TGTFunctions.Match(recRegExData.FClassName, strClassName) Or
+     TGTFunctions.Match(recRegExData.FWindowText, strWindowText) Then
     Begin
       If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
         Exit;
@@ -297,7 +277,7 @@ Var
 
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
   If iWnd > 0 Then
     Begin
       Win32Check(BringWindowToTop(iWnd));
@@ -500,11 +480,11 @@ ResourceString
 
 Var
   iWnd : HWND;
-  recChildData : TGTChildData;
+  recChildData : TGTFindWindowRec;
   
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
   FOutputEvent(strOutputtingChildWindows, [TGTFunctions.WindowClassName(iWnd)]);
   recChildData.FParentWHnd := iWnd;
   recChildData.FOutputEvent := FOutputEvent;
@@ -544,7 +524,7 @@ Begin
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString);
     If Statement.ParameterCount > iChildWindowIdx Then
       iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd,
-        Statement.Parameter[iChildWindowIdx].FText.DeQuotedString, '');
+        Statement.Parameter[iChildWindowIdx].FText.DeQuotedString);
     FOutputEvent(strOutputTabOrder, [TGTFunctions.WindowClassName(iWnd)]);
     iCtrlWnd := GetNextDlgTabItem(iWnd, 0, False);
     iFirstCtrlWnd := iCtrlWnd;
@@ -578,16 +558,13 @@ ResourceString
   strOutputTopLvlWnd = 'Outputting Top Level Windows Matching "%s"';
 
 Var
-  recRegExData : TGTRegExData;
+  recRegExData : TGTFindWindowRec;
   
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Try
     FOutputEvent(strOutputTopLvlWnd, [Statement.Parameter[0].FText.DeQuotedString]);
-    recRegExData.FRegEx := TRegEx.Create(
-      Statement.Parameter[0].FText.DeQuotedString,
-      [roIgnoreCase, roSingleLine, roCompiled]
-    );
+    recRegExData.Create(Statement.Parameter[0].FText.DeQuotedString);
     recRegExData.FOutputEvent := FOutputEvent;
     EnumWindows(@ListWindowCallBack, LPARAM(@recRegExData));
     Result := tsSuccessful;
@@ -622,7 +599,7 @@ Var
 
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
   If iWnd > 0 Then
     Begin
       Win32Check(MoveWindow(
@@ -749,7 +726,7 @@ Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
   FEditorUpdateEvent(Statement.Line, tsRunning);
   ShiftStates := [];
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
   If iWnd > 0 Then
     Begin
       // Find Shift States - Start at 1 as parameter 0 is the text to output.
@@ -903,18 +880,15 @@ Const
 
 Var
   iWnd : HWND;
-  recRegExData : TGTRegExData;
+  recRegExData : TGTFindWindowRec;
   
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString, '');
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].FText.DeQuotedString);
   Try
+    recRegExData.Create(Statement.Parameter[iChildWindowIdx].FText.DeQuotedString);
     recRegExData.FOutputEvent := FOutputEvent;
     recRegExData.FCounter := 0;
-    recRegExData.FRegEx := TRegEx.Create(
-      Statement.Parameter[1].FText.DeQuotedString,
-      [roCompiled, roSingleLine, roIgnoreCase]
-    );
     EnumChildWindows(iWnd, @FindChildWindowsCallBack, LPARAM(@recRegExData));
     If recRegExData.FCounter = Statement.Parameter[iIntCountIdx].AsInteger Then
       Begin
@@ -1046,7 +1020,7 @@ Begin
   iStart := GetTickCount64;
   WindowPlacement.showCmd := SW_HIDE;
   Repeat
-    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString, '');
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].FText.DeQuotedString);
     If iWnd > 0 Then
       GetWindowPlacement(iWnd, WindowPlacement);
     Sleep(iDefaultWaitInterval);

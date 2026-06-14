@@ -3,8 +3,8 @@
   This module contains the main project data for the GUI tester application.
 
   @Author  David Hoyle
-  @Version 1.122
-  @Date    13 Jun 2026
+  @Version 1.123
+  @Date    14 Jun 2026
 
   @nocheck hardcodedstring
   @license
