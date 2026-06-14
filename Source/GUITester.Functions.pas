@@ -3,7 +3,7 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 2.894
+  @Version 2.923
   @Author  David Hoyle
   @Date    14 Jun 2026
   
@@ -92,6 +92,17 @@ Begin
       End;
 End;
 
+(**
+
+  A constructor for the TGTFindWindowRec class.
+
+  @precon  None.
+  @postcon Initialise the record including splitting the given text into regular expressions for Class
+           Names and Window Text.
+
+  @param   strClassNameWindowTextRegEx as a String as a constant
+
+**)
 Constructor TGTFindWindowRec.Create(Const strClassNameWindowTextRegEx: String);
 
 ResourceString

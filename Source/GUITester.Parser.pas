@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.785
-  @Date    13 Jun 2026
+  @Version 3.799
+  @Date    14 Jun 2026
 
   @license
 
@@ -871,8 +871,8 @@ Function TGTParser.SendKeys: Boolean;
 
 Type
   TGTVirtualKey = Record
-    FName : String;
-    FCode : Integer;
+    FName     : String;
+    FCode     : Integer;
   End;
   
 ResourceString
@@ -882,30 +882,30 @@ Const
   strSENDKEYS = 'SENDKEYS';
   strExtendedKeys : TArray<String> = [ 'ALT', 'CTRL', 'SHIFT' ];
   astrVirtualKeys : Array[0..23] Of TGTVirtualKey = (
-    (FName: 'VK_BACK'; FCode: VK_BACK),
-    (FName: 'VK_TAB'; FCode: VK_TAB),
+    (FName: 'VK_BACK';   FCode: VK_BACK),
+    (FName: 'VK_TAB';    FCode: VK_TAB),
     (FName: 'VK_RETURN'; FCode: VK_RETURN),
     (FName: 'VK_ESCAPE'; FCode: VK_ESCAPE),
-    (FName: 'VK_END'; FCode: VK_END),
-    (FName: 'VK_HOME'; FCode: VK_HOME),
-    (FName: 'VK_LEFT'; FCode: VK_LEFT),
-    (FName: 'VK_UP'; FCode: VK_UP),
-    (FName: 'VK_RIGHT'; FCode: VK_RIGHT),
-    (FName: 'VK_DOWN'; FCode: VK_DOWN),
+    (FName: 'VK_END';    FCode: VK_END),
+    (FName: 'VK_HOME';   FCode: VK_HOME),
+    (FName: 'VK_LEFT';   FCode: VK_LEFT),
+    (FName: 'VK_UP';     FCode: VK_UP),
+    (FName: 'VK_RIGHT';  FCode: VK_RIGHT),
+    (FName: 'VK_DOWN';   FCode: VK_DOWN),
     (FName: 'VK_INSERT'; FCode: VK_INSERT),
     (FName: 'VK_DELETE'; FCode: VK_DELETE),
-    (FName: 'VK_F1'; FCode: VK_F1),
-    (FName: 'VK_F2'; FCode: VK_F2),
-    (FName: 'VK_F3'; FCode: VK_F3),
-    (FName: 'VK_F4'; FCode: VK_F4),
-    (FName: 'VK_F5'; FCode: VK_F5),
-    (FName: 'VK_F6'; FCode: VK_F6),
-    (FName: 'VK_F7'; FCode: VK_F7),
-    (FName: 'VK_F8'; FCode: VK_F8),
-    (FName: 'VK_F9'; FCode: VK_F9),
-    (FName: 'VK_F10'; FCode: VK_F10),
-    (FName: 'VK_F11'; FCode: VK_F11),
-    (FName: 'VK_F12'; FCode: VK_F12)
+    (FName: 'VK_F1';     FCode: VK_F1),
+    (FName: 'VK_F2';     FCode: VK_F2),
+    (FName: 'VK_F3';     FCode: VK_F3),
+    (FName: 'VK_F4';     FCode: VK_F4),
+    (FName: 'VK_F5';     FCode: VK_F5),
+    (FName: 'VK_F6';     FCode: VK_F6),
+    (FName: 'VK_F7';     FCode: VK_F7),
+    (FName: 'VK_F8';     FCode: VK_F8),
+    (FName: 'VK_F9';     FCode: VK_F9),
+    (FName: 'VK_F10';    FCode: VK_F10),
+    (FName: 'VK_F11';    FCode: VK_F11),
+    (FName: 'VK_F12';    FCode: VK_F12)
   );
 
   (**
@@ -979,7 +979,7 @@ Begin
       iIndex := FindVirtualKey(Token().FText);
       If iIndex = -1 Then
         Raise EGTParserException.CreateFmt(strInvalidVirtualKey, [Token.FText]);
-      SendKeysString.Create(Char(astrVirtualKeys[iIndex].FCode), ttIntegerNumber, Token.FLine,
+      SendKeysString.Create(astrVirtualKeys[iIndex].FCode.ToString, ttIntegerNumber, Token.FLine,
         Token.FColumn);
     End Else
       CheckString();

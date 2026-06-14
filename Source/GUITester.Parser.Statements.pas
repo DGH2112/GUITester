@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 5.431
+  @Version 5.972
   @Author  David Hoyle
   @Date    14 Jun 2026
   
@@ -83,7 +83,9 @@ uses
   System.Classes,
   System.Diagnostics,
   System.RegularExpressionsCore,
-  System.TypInfo;
+  System.TypInfo,
+  System.Math,
+  CodeSiteLogging;
 
 ResourceString
   (** A resource string message for not being able to find a window with a specific class name. **)
@@ -663,11 +665,34 @@ End;
 **)
 Function TGTParserStatements.SendKeysCommand(Const Statement: IGTStatement): TGTTestStatus;
 
-Const
-  strCTRLKey = 'CTRL';
-  strSHIFTKey = 'SHIFT';
-  strALTKey = 'ALT';
-  iLowByte = $00FF;
+  (**
+
+    This method returns true of the given Virtual Key requires the extended flag.
+
+    @precon  None.
+    @postcon Returns true of the given Virtual Key requires the extended flag.
+
+    @param   iKey as a WORD as a constant
+    @return  a Boolean
+
+  **)
+  Function RequiresExtended(Const iKey : WORD) : Boolean;
+
+  Const
+    aiExtendedVKeys = [VK_RIGHT, VK_LEFT, VK_UP, VK_DOWN, VK_INSERT, VK_DELETE, VK_HOME, VK_END];
+
+  Var
+    i : WORD;
+    
+  Begin
+    Result := False;
+    For i In aiExtendedVKeys Do
+      If i = iKey Then
+        Begin
+          Result := True;
+          Break;
+        End;
+  End;
 
   (**
 
@@ -676,12 +701,14 @@ Const
     @precon  Msg must be either WM_KEYDOWN and WM_KEYUP.
     @postcon The key is sent to the top most window as input.
 
-    @param   iWnd   as a HWND as a constant
-    @param   Msg    as an UINT as a constant
-    @param   wParam as a WPARAM as a constant
+    @param   iWnd             as a HWND as a constant
+    @param   Msg              as an UINT as a constant
+    @param   wParam           as a WPARAM as a constant
+    @param   boolIsVirtualKey as a Boolean as a constant
 
   **)
-  Procedure SendKeys(Const iWnd : HWND; Const Msg : UINT; Const wParam : WPARAM);
+  Procedure SendKeys(Const iWnd : HWND; Const Msg : UINT; Const wParam : WPARAM;
+    Const boolIsVirtualKey : Boolean = False);
 
   ResourceString
     strDoesNotHaveInput = 'The window "%s" does not have input ("%s" has input)!';
@@ -693,27 +720,25 @@ Const
     If GetForegroundWindow <> iWnd Then
       Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].FText.DeQuotedString,
         TGTFunctions.WindowClassName(GetForegroundWindow)]);
-    {Case Msg Of
-      WM_KEYDOWN: keybd_event(wParam, 0, 0, 0);
-      WM_KEYUP:   keybd_event(wParam, 0, KEYEVENTF_KEYUP, 0);
-    End;}
     ZeroMemory(@Inputs, SizeOf(Inputs));
+    Inputs.Itype := INPUT_KEYBOARD;
+    Inputs.ki.wVk := wParam;
+    Inputs.ki.wScan := wParam;
     Case Msg Of
-      WM_KEYDOWN:
-        Begin
-          Inputs.Itype := INPUT_KEYBOARD;
-          Inputs.ki.wVk := wParam;
-          Inputs.ki.dwFlags := 0;
-        End;
-      WM_KEYUP:
-        Begin
-          Inputs.Itype := INPUT_KEYBOARD;
-          Inputs.ki.wVk := wParam;
-          Inputs.ki.dwFlags := KEYEVENTF_KEYUP;
-        End;
+      WM_KEYDOWN: Inputs.ki.dwFlags := 0;
+      WM_KEYUP:   Inputs.ki.dwFlags := KEYEVENTF_KEYUP;
     End;
+    If boolIsVirtualKey Then
+      If RequiresExtended(Inputs.ki.wVk) Then
+        Inputs.ki.dwFlags := Inputs.ki.dwFlags Or KEYEVENTF_EXTENDEDKEY;
     SendInput(1, Inputs, SizeOf(TInput));
   End;
+
+Const
+  strCTRLKey = 'CTRL';
+  strSHIFTKey = 'SHIFT';
+  strALTKey = 'ALT';
+  iLowByte = $00FF;
 
 Var
   i: Integer;
@@ -721,6 +746,7 @@ Var
   iParameter: Integer;
   iResult : Short;
   ShiftStates : TShiftState;
+  strText : String;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
@@ -745,15 +771,25 @@ Begin
       If ssAlt In ShiftStates Then
         SendKeys(iWnd, WM_KEYDOWN, VK_MENU);
       // Key strokes
-      For i := 1 To Statement.Parameter[1].FText.Length Do
-        Begin
-          iResult := VkKeyScan(Statement.Parameter[1].FText[i]);
-          If iResult > -1 Then
-            Begin
-              SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte);
-              SendKeys(iWnd, WM_KEYUP, iResult And iLowByte);
-            End;
-        End;
+      Case Statement.Parameter[1].FTokenType Of
+        ttIntegerNumber:
+          Begin
+            iResult := Statement.Parameter[1].AsInteger;
+            SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte, True);
+            SendKeys(iWnd, WM_KEYUP, iResult And iLowByte, True);
+          End
+      Else
+        strText := Statement.Parameter[1].FText.DeQuotedString;
+        For i := 1 To strText.Length Do
+          Begin
+            iResult := VkKeyScan(strText[i]);
+            If iResult > -1 Then
+              Begin
+                SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte);
+                SendKeys(iWnd, WM_KEYUP, iResult And iLowByte);
+              End;
+          End;
+      End;
       // Extended keys up
       If ssAlt In ShiftStates Then
         SendKeys(iWnd, WM_KEYUP, VK_MENU);
