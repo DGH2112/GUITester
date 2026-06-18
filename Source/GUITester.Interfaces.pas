@@ -3,7 +3,7 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 2.192
+  @Version 2.195
   @Date    18 Jun 2026
 
   @license
@@ -104,6 +104,7 @@ Type
     stSendKeys,
     stTestClass,
     stWaitForWindow,
+    stWaitForChildWindow,
     stWait,
     stCheckProcessEnd,
     stBringToFront,

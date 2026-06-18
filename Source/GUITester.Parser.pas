@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.013
+  @Version 4.161
   @Date    18 Jun 2026
 
   @license
@@ -73,6 +73,7 @@ Type
     Function  SendKeys() : Boolean;
     Function  IsTokenIn(Const astrText : TArray<String>) : Boolean;
     Function  WaitForWindow() : Boolean;
+    Function  WaitForChildWindow() : Boolean;
     Function  Wait() : Boolean;
     Function  CheckProcessEnd() : Boolean;
     Procedure CheckSymbol(Const strSymbol : String);
@@ -1061,6 +1062,7 @@ Begin
       TestClass() Or
       SendKeys() Or
       WaitForWindow() Or
+      WaitForChildWindow() Or
       Wait() Or
       CheckProcessEnd() Or
       BringToFront() Or
@@ -1182,6 +1184,50 @@ Begin
   CheckSymbol(')');
   Statement := Add(stWait, T.Fline);
   Statement.AddParameter(WaitTime);
+End;
+
+(**
+
+  This method parses the WAITFORCHILDWINDOW statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for WAITFORCHILDWINDOW is parse and a statement pushed onto the statement list
+           else if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.WaitForChildWindow: Boolean;
+
+Const
+  strWAITFORCHILDWINDOW = 'WAITFORCHILDWINDOW';
+
+Var
+  Statement: IGTStatement;
+  
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForChildWindow', tmoTiming);{$ENDIF}
+  Result := CompareText(strWAITFORCHILDWINDOW, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stWaitForChildWindow, Token().Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
 End;
 
 (**

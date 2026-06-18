@@ -3,9 +3,9 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 3.019
+  @Version 3.040
   @Author  David Hoyle
-  @Date    14 Jun 2026
+  @Date    18 Jun 2026
   
   @license
 
@@ -182,9 +182,6 @@ End;
 **)
 Class Function TGTFunctions.FindChildWindowByRegEx(Const iWnd : HWND; Const strRegExText : String): HWND;
 
-ResourceString
-  strFindChildWindowByRegExFailed = 'FindChildWindowByRegEx failed (%d, %s)';
-
 Var
   recFindWindow : TGTFindWindowRec;
   
@@ -194,8 +191,6 @@ Begin
     recFindWindow.FWindowHnd := 0;
     EnumChildWindows(iWnd, @FindWindowByRegExCallBack, LPARAM(@recFindWindow));
     Result := recFindWindow.FWindowHnd;
-    If Result = 0 Then
-      Raise EGTException.CreateFmt(strFindChildWindowByRegExFailed, [iWnd, strRegExText]);
   Except
     On E : ERegularExpressionError Do
       Raise EGTException.Create(E.Message);

@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 6.476
+  @Version 6.815
   @Author  David Hoyle
   @Date    18 Jun 2026
   
@@ -75,6 +75,7 @@ Type
     Function LaunchCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForIdleCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function WaitForChildWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
@@ -432,6 +433,7 @@ Begin
   FStatements.Add(stSendKeys, SendKeysCommand);
   FStatements.Add(stTestClass, TestClassCommand);
   FStatements.Add(stWaitForWindow, WaitForWindowCommand);
+  FStatements.Add(stWaitForChildWindow, WaitForChildWindowCommand);
   FStatements.Add(stWait, WaitCommand);
   FStatements.Add(stCheckProcessEnd, CheckProcessEndCommand);
   FStatements.Add(stBringToFront, BringToFront);
@@ -573,6 +575,7 @@ Function TGTParserStatements.ListTabOrder(Const Statement: IGTStatement): TGTTes
 
 ResourceString
   strOutputTabOrder = 'Outputting Tab Order for Windows Matching "%s"';
+  strFindChildWindowByRegExFailed = 'Find child window by regular expression failed (%d, %s)';
 
 Const
   iMainWindowIdx = 0;
@@ -587,8 +590,12 @@ Begin
   Try
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
     If Statement.ParameterCount > iChildWindowIdx Then
-      iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd,
-        Statement.Parameter[iChildWindowIdx].Text);
+      Begin
+        iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd, Statement.Parameter[iChildWindowIdx].Text);
+        If iWnd = 0 Then
+          Raise EGTException.CreateFmt(strFindChildWindowByRegExFailed, [iWnd,
+            Statement.Parameter[iChildWindowIdx].Text]);
+      End;
     FOutputEvent(strOutputTabOrder, [TGTFunctions.WindowClassName(iWnd)]);
     iCtrlWnd := GetNextDlgTabItem(iWnd, 0, False);
     iFirstCtrlWnd := iCtrlWnd;
@@ -1045,6 +1052,81 @@ End;
 
 (**
 
+  This method attempts to wait for a child window with the name provided by the parameters of the
+  given statement. It looks not only for the window but also that the window is either showing NORMAL or
+  MAXIMIZED.
+
+  @precon  Statement must be a valid statement with 3 parameters: first and second are window names and;
+           third is the wait time in milliseconds.
+  @postcon The method attempts to find the child window and wait for it to be displayed else returns as
+           failed.
+
+  @nometric toxicity cyclometriccomplexity
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.WaitForChildWindowCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strWaitTimedOutMain = 'Wait timed out (Main)!';
+  strWaitTimedOutChild = 'Wait timed out (Child)!';
+
+Const
+  iDefaultWaitInterval = 100;
+  iWaitTimeIdx = 2;
+  iMainWindowRegExIdx = 0;
+  iChildWindowRegExIdx = 1;
+
+Var
+  iWnd, iChildWnd : THandle;
+  iStart : UINt64;
+  WindowPLacement : TWindowPlacement;
+  
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForChildWindowCommand', tmoTiming);{$ENDIF}
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  // Wait for main window
+  iStart := GetTickCount64;
+  WindowPlacement.showCmd := SW_HIDE;
+  Repeat
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowRegExIdx].Text);
+    If iWnd > 0 Then
+      GetWindowPlacement(iWnd, WindowPlacement);
+    Sleep(iDefaultWaitInterval);
+  Until ((iWnd > 0) And (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE])) Or
+    (GetTickCount64 - iStart > Statement.Parameter[iWaitTimeIdx].Integer);
+  If iWnd > 0 Then
+    Begin
+      // Wait for child window
+      iStart := GetTickCount64;
+      WindowPlacement.showCmd := SW_HIDE;
+      Repeat
+        iChildWnd := TGTFunctions.FindChildWindowByRegEx(iWnd,
+          Statement.Parameter[iChildWindowRegExIdx].Text);
+        If iChildWnd > 0 Then
+          GetWindowPlacement(iChildWnd, WindowPlacement);
+        Sleep(iDefaultWaitInterval);
+      Until ((iChildWnd > 0) And (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE])) Or
+        (GetTickCount64 - iStart > Statement.Parameter[iWaitTimeIdx].Integer);
+      If iChildWnd > 0 Then
+        Result := tsSuccessful
+      Else
+        Begin
+          Result := tsFailure;
+          FLastCommandError(strWaitTimedOutChild);
+        End;
+    End Else
+    Begin
+      Result := tsFailure;
+      FLastCommandError(strWaitTimedOutMain);
+    End;
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
   This method attempts to wait for the test application to become idle. This method uses the first
   parameter of the statement as a wait time in milliseconds.
 
@@ -1100,7 +1182,7 @@ End;
 
   This method attempts to wait for a top level window with the name provided by the parameter of the
   given statement. It looks not only for the window but also that the window is either showing NORMAL or
-  MAZIMIZED.
+  MAXIMIZED.
 
   @precon  Statement must be a valid statement with 2 parameters: first the window name and; second the
            wait time in milliseconds.

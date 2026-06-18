@@ -4,7 +4,7 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.394
+  @Version 1.415
   @Date    18 Jun 2026
 
   @usesemicolon
@@ -39,6 +39,7 @@
                             <TestClass>           |
                             <SendKeys>            |
                             <WaitForWindow>       |
+                            <WaitForChildWindow>  |
                             <Wait>                |
                             <CheckProcessEnd>     |
                             <BringToFront>        |
@@ -69,6 +70,9 @@
                       ')';
                       
 <WaitForWindow>       ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')';
+
+<WaitForChildWindow>   ::= 'WAITFORCHILDWINDOW' '(' <StringLiteral> ',' <StringLiteral> ','
+                             <IntegerNumber> ')';
 
 <Wait>                ::= 'WAIT' '(' <IntegerNumber> ')';
 
