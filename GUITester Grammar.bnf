@@ -4,8 +4,8 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.352
-  @Date    14 Jun 2026
+  @Version 1.394
+  @Date    18 Jun 2026
 
   @usesemicolon
   @license
@@ -30,69 +30,72 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 **/
-<Goal>            ::= <Statements>;
+<Goal>                ::= <Statements>;
 
-<Statements>      ::= <Statement>*;
+<Statements>          ::= <Statement>*;
 
-<Statement>       ::= ( <Launch>          |
-                        <WaitForIdle>     |
-                        <TestClass>       |
-                        <SendKeys>        |
-                        <WaitForWindow>   |
-                        <Wait>            |
-                        <CheckProcessEnd> |
-                        <BringToFront>    |
-                        <PositionWindow>  |
-                        <ListWindows>     |
-                        <ListChildWindows>|
-                        <ListTabOrder>
+<Statement>           ::= ( <Launch>              |
+                            <WaitForIdle>         |
+                            <TestClass>           |
+                            <SendKeys>            |
+                            <WaitForWindow>       |
+                            <Wait>                |
+                            <CheckProcessEnd>     |
+                            <BringToFront>        |
+                            <PositionWindow>      |
+                            <ListWindows>         |
+                            <ListALLChildWindows> |
+                            <ListChildWindows>    |
+                            <ListTabOrder>
                       ) ';';
 
-<Launch>          ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
+<Launch>              ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
 
-<Executable>      ::= <StringLiteral>;
+<Executable>          ::= <StringLiteral>;
+                      
+<Directory>           ::= <StringLiteral>;
 
-<Directory>       ::= <StringLiteral>;
+<CommandLine>         ::= <StringLiteral>;
 
-<CommandLine>     ::= <StringLiteral>;
+<WaitForIdle>         ::= 'WAITFORIDLE' '(' <IntegerNumber> ')';
+                      
+<TestClass>           ::= 'TESTCLASS' '(' <StringLiteral> ',' <StringLiteral> ',' <IntegerNumber> ')';
 
-<WaitForIdle>     ::= 'WAITFORIDLE' '(' <IntegerNumber> ')';
-
-<TestClass>       ::= 'TESTCLASS' '(' <StringLiteral> ',' <StringLiteral> ',' <IntegerNumber> ')';
-
-<SendKeys>        ::= 'SENDKEYS' '('
+<SendKeys>            ::= 'SENDKEYS' '('
                         <StringLiteral> ','
                         '[' [ <StringList> ] ']' ','
-                        ( <StringLiteral> | '[' <Identifier> ( ',' <Identifier>)* ']' ) ','
+                            ( <StringLiteral> | '[' <Identifier> ( ',' <Identifier>)* ']' ) ','
                         <IntegerNumber>
                       ')';
+                      
+<WaitForWindow>       ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')';
 
-<WaitForWindow>   ::= 'WAITFORWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ')';
+<Wait>                ::= 'WAIT' '(' <IntegerNumber> ')';
 
-<Wait>            ::= 'WAIT' '(' <IntegerNumber> ')';
+<CheckProcessEnd>     ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')';
+                      
+<BringToFront>        ::= 'BRINGTOFRONT' '(' <StringLiteral> ')';
 
-<CheckProcessEnd> ::= 'CHECKPROCESSEND' '(' <IntegerNumber> ')';
-
-<BringToFront>    ::= 'BRINGTOFRONT' '(' <StringLiteral> ')';
-
-<PositionWindow>  ::= 'POSITIONWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ',' <IntegerNumber> ','
+<PositionWindow>      ::= 'POSITIONWINDOW' '(' <StringLiteral> ',' <IntegerNumber> ',' <IntegerNumber> ','
                                            <IntegerNumber> ',' <IntegerNumber> ')';
 
-<ListWindows>     ::= 'LISTWINDOWS' '(' <StringLiteral> ' )';                                           
+<ListWindows>         ::= 'LISTWINDOWS' '(' <StringLiteral> ' )';                                           
 
-<ListChildWindows>::= 'LISTCHILDWINDOWS' '(' <StringLiteral> ' )';
+<ListALLChildWindows> ::= 'LISTALLCHILDWINDOWS' '(' <StringLiteral> ' )';
 
-<ListTabOrder>    ::= 'LISTTABORDER' '(' <StringLiteral> [ ',' <StringLiteral> ] ')';
+<ListChildWindows>    ::= 'LISTCHILDWINDOWS' '(' <StringLiteral> ' )';
 
-<StringLiteral>   ::= '''' (#32..#127)* '''';
+<ListTabOrder>        ::= 'LISTTABORDER' '(' <StringLiteral> [ ',' <StringLiteral> ] ')';
 
-<StringList>      ::= ( <StringLiteral> ( ',' <StringLiteral> ) );
+<StringLiteral>       ::= '''' (#32..#127)* '''';
 
-<IntegerNumber>   ::= ( <Digit> )*;
+<StringList>          ::= ( <StringLiteral> ( ',' <StringLiteral> ) );
 
-<Alpha>           ::= 'a'..'z' | 'A'..'Z' | '_';
+<IntegerNumber>       ::= ( <Digit> )*;
 
-<Digit>           ::= '0'..'9';
+<Alpha>               ::= 'a'..'z' | 'A'..'Z' | '_';
 
-<Identifier>      ::= <Alpha> ( <Alpha> | <Digit> )*;
+<Digit>               ::= '0'..'9';
+
+<Identifier>          ::= <Alpha> ( <Alpha> | <Digit> )*;
 

@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 2.188
-  @Date    14 Jun 2026
+  @Version 2.192
+  @Date    18 Jun 2026
 
   @license
 
@@ -109,6 +109,7 @@ Type
     stBringToFront,
     stPositionWindow,
     stListWindows,
+    stListAllChildWindows,
     stListChildWindows,
     stListTabOrder
   );

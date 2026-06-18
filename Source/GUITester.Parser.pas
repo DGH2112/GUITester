@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 3.920
-  @Date    14 Jun 2026
+  @Version 4.013
+  @Date    18 Jun 2026
 
   @license
 
@@ -81,6 +81,7 @@ Type
     Function  BringToFront() : Boolean;
     Function  PositionWindow() : Boolean;
     Function  ListWindows() : Boolean;
+    Function  ListAllChildWindows() : Boolean;
     Function  ListChildWindows() : Boolean;
     Function  ListTabOrder() : Boolean;
   Public
@@ -641,10 +642,43 @@ End;
 
 (**
 
-  This method parses the ListChildWindows element of the grammar.
+  This method parses the ListAllChildWindows element of the grammar.
 
   @precon  None.
   @postcon The lists all the child windows that match the window with the given regular expression.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.ListAllChildWindows: Boolean;
+
+Const
+  strLISTALLCHILDWINDOWS = 'LISTALLCHILDWINDOWS';
+
+Var
+  Statement: IGTStatement;
+  
+Begin
+  Result := CompareText(strLISTALLCHILDWINDOWS, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stListAllChildWindows, Token.Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
+End;
+
+(**
+
+  This method parses the ListChildWindows element of the grammar.
+
+  @precon  None.
+  @postcon The lists the immediate child windows that match the window with the given regular
+           expression.
 
   @return  a Boolean
 
@@ -654,8 +688,9 @@ Function TGTParser.ListChildWindows: Boolean;
 Const
   strLISTCHILDWINDOWS = 'LISTCHILDWINDOWS';
 
-var
+Var
   Statement: IGTStatement;
+  
 Begin
   Result := CompareText(strLISTCHILDWINDOWS, Token.FText) = 0;
   If Not Result Then
@@ -1031,6 +1066,7 @@ Begin
       BringToFront() Or
       PositionWindow() Or
       ListWindows() Or
+      ListAllChildWindows() Or
       ListChildWindows() Or
       ListTabOrder()
     ) Do

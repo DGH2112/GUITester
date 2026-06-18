@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 6.175
+  @Version 6.476
   @Author  David Hoyle
-  @Date    14 Jun 2026
+  @Date    18 Jun 2026
   
   @license
 
@@ -82,6 +82,7 @@ Type
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListAllChildWindows(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListChildWindows(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListTabOrder(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
@@ -143,14 +144,40 @@ End;
 
 (**
 
-  This method checks if the child window handle has either a class name or window text that matches
-  the given regular expression.
+  This method outputs the child window if a child.
 
   @precon  lParam must be a pointer to the PGTFindWindowRec record
   @postcon If there is a match the handle, class name and window text are output.
 
   @nocheck MissingCONSTInParam
-  @nometric toxicity
+
+  @param   hWnd   as a HWND
+  @param   lParam as a LPARAM
+  @return  a BOOL
+
+**)
+Function ListAllChildWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
+
+Var
+  iProcessID : DWORD;
+  recChildData : PGTFindWindowRec;
+
+Begin
+  Result := True;
+  recChildData := Pointer(lParam);
+  If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
+    Exit;
+  recChildData.FOutputEvent(TGTFunctions.WindowInfo(hWnd), []);
+End;
+
+(**
+
+  This method outputs the child window info if an immediate child of the parent window.
+
+  @precon  lParam must be a pointer to the PGTFindWindowRec record
+  @postcon If there is a match the handle, class name and window text are output.
+
+  @nocheck MissingCONSTInParam
 
   @param   hWnd   as a HWND
   @param   lParam as a LPARAM
@@ -159,35 +186,17 @@ End;
 **)
 Function ListChildWindowCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
 
-Const
-  iBufferLen = 1024;
-
 Var
-  hProcess : HINST;
-  iLen: Integer;
   iProcessID : DWORD;
   recChildData : PGTFindWindowRec;
-  strClassName, strWindowText : String;
-  strExecutable : String;
 
 Begin
   Result := True;
   recChildData := Pointer(lParam);
-  strClassName := TGTFunctions.WindowClassName(hWnd);
-  strWindowText := TGTFunctions.WindowText(hWnd);
   If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
     Exit;
-  strExecutable := StringOfChar(#0, iBufferLen);
-  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION Or PROCESS_VM_READ, False, iProcessID);
-  Try
-    iLen := GetModuleFileName(hProcess, PChar(strExecutable), iBufferLen);
-    SetLength(strExecutable, iLen);
-    If iLen = 0 Then
-      strExecutable := SysErrorMessage(GetLastError);
-  Finally
-    CloseHandle(hProcess);
-  End;
-  recChildData.FOutputEvent(TGTFunctions.WindowInfo(hWnd), []);
+  If recChildData.FParentWHnd = GetParent(hWnd) Then
+    recChildData.FOutputEvent(TGTFunctions.WindowInfo(hWnd), []);
 End;
 
 (**
@@ -428,6 +437,7 @@ Begin
   FStatements.Add(stBringToFront, BringToFront);
   FStatements.Add(stPositionWindow, PositionWindow);
   FStatements.Add(stListWindows, ListWindows);
+  FStatements.Add(stListAllChildWindows, ListAllChildWindows);
   FStatements.Add(stListChildWindows, ListChildWindows);
   FStatements.Add(stListTabOrder, ListTabOrder);
 End;
@@ -496,10 +506,41 @@ End;
   @return  a TGTTestStatus
 
 **)
+Function TGTParserStatements.ListAllChildWindows(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strOutputtingChildWindows = 'Outputting ALL Child Windows of "%s":';
+
+Var
+  iWnd : HWND;
+  recChildData : TGTFindWindowRec;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
+  FOutputEvent(strOutputtingChildWindows, [TGTFunctions.WindowClassName(iWnd)]);
+  recChildData.FParentWHnd := iWnd;
+  recChildData.FOutputEvent := FOutputEvent;
+  EnumChildWindows(iWnd, @ListAllChildWindowCallBack, LPARAM(@recChildData));
+  Result := tsSuccessful;
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method list immediate child windows of the window the matches the given regular expression.
+
+  @precon  Statement must be a valid instance.
+  @postcon Immediate child windows matching the window matching the regular expression are output.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
 Function TGTParserStatements.ListChildWindows(Const Statement: IGTStatement): TGTTestStatus;
 
 ResourceString
-  strOutputtingChildWindows = 'Outputting Child Windows of "%s":';
+  strOutputtingChildWindows = 'Outputting Immediate Child Windows of "%s":';
 
 Var
   iWnd : HWND;
