@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 6.815
+  @Version 7.182
   @Author  David Hoyle
-  @Date    18 Jun 2026
+  @Date    19 Jun 2026
   
   @license
 
@@ -79,7 +79,7 @@ Type
     Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function TestClassCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function CheckCountCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
@@ -367,6 +367,63 @@ End;
 
 (**
 
+  This method counts the number of child windows matching the second parameter of the statement.
+
+  @precon  Statement must be a valid instance.
+  @postcon Outputs success if 1 or more windows are found else failure..
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.CheckCountCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strFoundChildWindowsMatching = 'Found %d child windows matching "%s->%s"';
+  strExpectingCount = 'Expecting a count of %d but found a count of %d!';
+
+Const
+  iMainWindowIdx = 0;
+  iIntCountIdx = 2;
+  iChildWindowIdx = 1;
+
+Var
+  iWnd : HWND;
+  recRegExData : TGTFindWindowRec;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+  Try
+    recRegExData.Create(Statement.Parameter[iChildWindowIdx].Text);
+    recRegExData.FOutputEvent := FOutputEvent;
+    recRegExData.FCounter := 0;
+    EnumChildWindows(iWnd, @FindChildWindowsCallBack, LPARAM(@recRegExData));
+    If recRegExData.FCounter = Statement.Parameter[iIntCountIdx].Integer Then
+      Begin
+        Result := tsSuccessful;
+        FOutputEvent(strFoundChildWindowsMatching, [
+          recRegExData.FCounter,
+          Statement.Parameter[iMainWindowIdx].Text,
+          Statement.Parameter[iChildWindowIdx].Text
+        ])
+      End Else
+      Begin
+        Result := tsFailure;
+        FLastCommandError(Format(strExpectingCount, [
+          Statement.Parameter[iIntCountIdx].Integer,
+          recRegExData.FCounter
+        ]));
+      End;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
+End;
+
+(**
+
   This method checks that the process has terminated.
 
   @precon  Statement must be a valid instance.
@@ -431,7 +488,7 @@ Begin
   FStatements.Add(stLaunch, LaunchCommand);
   FStatements.Add(stWaitForIdle, WaitForIdleCommand);
   FStatements.Add(stSendKeys, SendKeysCommand);
-  FStatements.Add(stTestClass, TestClassCommand);
+  FStatements.Add(stCheckCount, CheckCountCommand);
   FStatements.Add(stWaitForWindow, WaitForWindowCommand);
   FStatements.Add(stWaitForChildWindow, WaitForChildWindowCommand);
   FStatements.Add(stWait, WaitCommand);
@@ -970,63 +1027,6 @@ Begin
     EnumWindows(@WindowTopLvlWindow, LPARAM(@GTProcessInfo));
   Until (GTProcessInfo.FWndHnd > 0) Or (Timer.ElapsedMilliseconds > iMaxWaitTimeForAppStartup);
   Timer.Stop;
-End;
-
-(**
-
-  This method counts the number of child windows matching the second parameter of the statement.
-
-  @precon  Statement must be a valid instance.
-  @postcon Outputs success if 1 or more windows are found else failure..
-
-  @param   Statement as an IGTStatement as a constant
-  @return  a TGTTestStatus
-
-**)
-Function TGTParserStatements.TestClassCommand(Const Statement: IGTStatement): TGTTestStatus;
-
-ResourceString
-  strFoundChildWindowsMatching = 'Found %d child windows matching "%s->%s"';
-  strExpectingCount = 'Expecting a count of %d but found a count of %d!';
-
-Const
-  iMainWindowIdx = 0;
-  iIntCountIdx = 2;
-  iChildWindowIdx = 1;
-
-Var
-  iWnd : HWND;
-  recRegExData : TGTFindWindowRec;
-  
-Begin
-  FEditorUpdateEvent(Statement.Line, tsRunning);
-  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
-  Try
-    recRegExData.Create(Statement.Parameter[iChildWindowIdx].Text);
-    recRegExData.FOutputEvent := FOutputEvent;
-    recRegExData.FCounter := 0;
-    EnumChildWindows(iWnd, @FindChildWindowsCallBack, LPARAM(@recRegExData));
-    If recRegExData.FCounter = Statement.Parameter[iIntCountIdx].Integer Then
-      Begin
-        Result := tsSuccessful;
-        FOutputEvent(strFoundChildWindowsMatching, [
-          recRegExData.FCounter,
-          Statement.Parameter[iMainWindowIdx].Text,
-          Statement.Parameter[iChildWindowIdx].Text
-        ])
-      End Else
-      Begin
-        Result := tsFailure;
-        FLastCommandError(Format(strExpectingCount, [
-          Statement.Parameter[iIntCountIdx].Integer,
-          recRegExData.FCounter
-        ]));
-      End;
-    FEditorUpdateEvent(Statement.Line, Result);
-  Except
-    On E : ERegularExpressionError Do
-      Raise EGTException.Create(E.Message);
-  End;
 End;
 
 (**

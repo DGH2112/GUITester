@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.161
-  @Date    18 Jun 2026
+  @Version 4.163
+  @Date    19 Jun 2026
 
   @license
 
@@ -69,7 +69,7 @@ Type
     Function  WaitForIdle() : Boolean;
     Function  Token : TGTToken;
     Procedure MoveToNextNonCommentToken();
-    Function  TestClass() : Boolean;
+    Function  CheckCount() : Boolean;
     Function  SendKeys() : Boolean;
     Function  IsTokenIn(Const astrText : TArray<String>) : Boolean;
     Function  WaitForWindow() : Boolean;
@@ -189,6 +189,49 @@ Begin
     Result := ttIntegerNumber
   Else
     Result := ttUnknown;
+End;
+
+(**
+
+  This method parses the TESTCLASS statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for TESTCLASS is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.CheckCount: Boolean;
+
+Const
+  strCheckCount = 'CheckCount';
+
+Var
+  Statement: IGTStatement;
+
+Begin
+  Result := CompareText(strCheckCount, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stCheckCount, Token().FLine);
+  MoveToNextNonCommentToken();;
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
 End;
 
 (**
@@ -1059,7 +1102,7 @@ Begin
   While (
       Launch() Or
       WaitForIdle() Or
-      TestClass() Or
+      CheckCount() Or
       SendKeys() Or
       WaitForWindow() Or
       WaitForChildWindow() Or
@@ -1083,49 +1126,6 @@ Begin
       FColumn := Token.FColumn;
       RaiseParserException(strUnexpectedTokenFound, [Token.FText, Token.FLine, Token.FColumn]);
     End;
-End;
-
-(**
-
-  This method parses the TESTCLASS statement in the grammar.
-
-  @precon  None.
-  @postcon The grammar for TESTCLASS is parse and a statement pushed onto the statement list else
-           if the parsing fails, a parser exception is raised.
-
-  @return  a Boolean
-
-**)
-Function TGTParser.TestClass: Boolean;
-
-Const
-  strTestClass = 'TestClass';
-
-Var
-  Statement: IGTStatement;
-
-Begin
-  Result := CompareText(strTestClass, Token.FText) = 0;
-  If Not Result Then
-    Exit;
-  Statement := Add(stTestClass, Token().FLine);
-  MoveToNextNonCommentToken();;
-  CheckSymbol('(');
-  MoveToNextNonCommentToken();
-  CheckString();
-  Statement.AddParameter(Token().DeQuote);
-  MoveToNextNonCommentToken();
-  CheckSymbol(',');
-  MoveToNextNonCommentToken();
-  CheckString();
-  Statement.AddParameter(Token().DeQuote);
-  MoveToNextNonCommentToken();
-  CheckSymbol(',');
-  MoveToNextNonCommentToken();
-  CheckInteger();
-  Statement.AddParameter(Token());
-  MoveToNextNonCommentToken();
-  CheckSymbol(')');
 End;
 
 (**

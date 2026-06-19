@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 2.195
-  @Date    18 Jun 2026
+  @Version 2.196
+  @Date    19 Jun 2026
 
   @license
 
@@ -102,7 +102,7 @@ Type
     stLaunch,
     stWaitForIdle,
     stSendKeys,
-    stTestClass,
+    stCheckCount,
     stWaitForWindow,
     stWaitForChildWindow,
     stWait,
