@@ -3,9 +3,9 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 3.040
+  @Version 3.523
   @Author  David Hoyle
-  @Date    18 Jun 2026
+  @Date    20 Jun 2026
   
   @license
 
@@ -38,6 +38,11 @@ Uses
   WinApi.Windows;
 
 Type
+  (** An enumerate for selecting the output from WindowInfo(). **)
+  TGTInfoItem = (iiHandle, iiStyles, iiCLassName, iiWindowText, iiBinary);
+  (** A set of the above enumerate values for WindowInfo() output. **)
+  TGTInfoItems = Set Of TGTInfoItem;
+
   (** A record to encapsulate functions that wrap windows functions and convert them to simple Object
       Pascal methods. **)
   TGTFunctions = Record
@@ -48,8 +53,9 @@ Type
     Class Function WindowModule(Const wHnd : HWND) : String; Static;
     Class Function FindWindowByRegEx(Const strRegExText : String) : HWND; Static;
     Class Function FindChildWindowByRegEx(Const iWnd : HWND; Const strRegExText : String) : HWND; Static;
-    Class Function WindowInfo(Const hWNd : HWND) : String; Static;
+    Class Function WindowInfo(Const hWNd : HWND; Const setInfoItems : TGTInfoItems) : String; Static;
     Class Function Match(Const RegEx : TRegEx; Const strText : String) : Boolean; Static;
+    Class Function WindowStyleAttr(Const hWNd : HWND) : String; Static;
   End;
 
   (** An event signature for outputting event information to the main application. **)
@@ -75,6 +81,7 @@ uses
   Winapi.PsAPI,
   System.RegularExpressionsCore,
   System.SysUtils,
+  System.StrUtils,
   GUITester.Interfaces;
 
 (**
@@ -281,31 +288,44 @@ End;
 
 (**
 
-  This method returns a formatted string containing the given Window Handle, the windows Class Name,
+  This method returns a formatted string containing the given Window Handle, the windows Class Name, 
   Window text and Module Name.
 
   @precon  None.
-  @postcon A formatted string is returned containing the handle, class Name, Window Text and Module Name.
+  @postcon A formatted string is returned containing the handle, class Name, Window Text and Module Name
+           .
 
-  @param   hWNd as a HWND as a constant
+  @param   hWNd         as a HWND as a constant
+  @param   setInfoItems as a TGTInfoItems as a constant
   @return  a String
 
 **)
-Class Function TGTFunctions.WindowInfo(Const hWNd: HWND): String;
+Class Function TGTFunctions.WindowInfo(Const hWNd: HWND; Const setInfoItems : TGTInfoItems): String;
 
 ResourceString
-  strHndClassTextBinary = '  Handle: %1.0n, Class: "%s", Text: "%s", Binary: "%s"';
+  strHandle = 'Handle: %1.0n';
+  strClass = 'Class: "%s"';
+  strText = 'Text: "%s"';
+  strBinary = 'Binary: "%s"';
+
+Var
+  eItem : TGTInfoItem;
 
 Begin
-  Result := Format(
-    strHndClassTextBinary,
-    [
-      Int(hWnd),
-      WindowClassName(hWnd),
-      WindowText(hWnd),
-      WindowModule(hWnd)
-    ]
-  )
+  Result := '';
+  For eItem := Low(TGTInfoItem) To High(TGTInfoItem) Do
+    If eItem In setInfoItems Then
+      Begin
+        If Result.Length > 0 Then
+          Result := Result + ', ';
+        Case eItem Of
+          iiHandle:     Result := Result + Format(strHandle, [Int(hWnd)]);
+          iiStyles:     Result := Result + WindowStyleAttr(hWnd);
+          iiClassName:  Result := Result + Format(strClass, [WindowClassName(hWnd)]);
+          iiWindowText: Result := Result + Format(strText, [WindowText(hWnd)]);
+          iiBinary:     Result := Result + Format(strBinary, [WindowModule(hWnd)]);
+        End;
+      End;
 End;
 
 (**
@@ -338,6 +358,43 @@ Begin
   Finally
     CloseHandle(hProcess);
   End;
+End;
+
+(**
+
+  This method returns an string with specific characters that represents the window styles for the given
+  window.
+
+  @precon  None.
+  @postcon Returns an string with specific characters that represents the window styles for the given
+           window.
+
+  @param   hWNd as a HWND as a constant
+  @return  a String
+
+**)
+Class Function TGTFunctions.WindowStyleAttr(Const hWNd: HWND): String;
+
+Type
+  TGTStyleAttr = (saTabStop, saDisabled, saVisible, saChild, saGroup);
+
+Const
+  acStyleAttrs : Array[TGTStyleAttr] Of Char = ('T', 'D', 'V', 'C', 'G');
+  aiStyles : Array[TGTStyleAttr] Of Integer = (WS_TABSTOP, WS_DISABLED, WS_VISIBLE, WS_CHILD, WS_GROUP);
+
+Var
+  eStyle : TGTStyleAttr;
+  iStyle: Integer;
+
+Begin
+  Result := '';
+  iStyle := GetWindowLong(hWnd, GWL_STYLE);
+  For eStyle := Low(TGTStyleAttr) to High(TGTStyleAttr) Do
+    If iStyle And aiStyles[eStyle] > 0 Then
+      Result := Result + acStyleAttrs[eStyle]
+    Else
+      Result := Result + '.';
+  Result := '[' + Result + ']';
 End;
 
 (**

@@ -168,7 +168,7 @@ Begin
   recChildData := Pointer(lParam);
   If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
     Exit;
-  recChildData.FOutputEvent(TGTFunctions.WindowInfo(hWnd), []);
+  recChildData.FOutputEvent(#32#32 + TGTFunctions.WindowInfo(hWnd, [iiHandle..iiWindowText]), []);
 End;
 
 (**
@@ -197,7 +197,7 @@ Begin
   If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
     Exit;
   If recChildData.FParentWHnd = GetParent(hWnd) Then
-    recChildData.FOutputEvent(TGTFunctions.WindowInfo(hWnd), []);
+    recChildData.FOutputEvent(#32#32 + TGTFunctions.WindowInfo(hWnd, [iiHandle..iiWindowText]), []);
 End;
 
 (**
@@ -249,7 +249,7 @@ Begin
       Finally
         CloseHandle(hProcess);
       End;
-      recRegExData.FOutputEvent(TGTFunctions.WindowInfo(hWNd), []);
+      recRegExData.FOutputEvent(#32#32 + TGTFunctions.WindowInfo(hWnd, [iiHandle..iiWindowText]), []);
     End;
 End;
 
@@ -303,7 +303,7 @@ End;
   @return  a TGTTestStatus
 
 **)
-Function TGTParserStatements.BringToFront(Const Statement: IGTStatement): TGTTestStatus;
+Function TGTParserStatements.BringToFrontCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 Var
   iWnd: HWND;
@@ -657,7 +657,7 @@ Begin
     iCtrlWnd := GetNextDlgTabItem(iWnd, 0, False);
     iFirstCtrlWnd := iCtrlWnd;
     Repeat
-      FOutputEvent(TGTFunctions.WindowInfo(iCtrlWnd), []);
+      FOutputEvent(#32#32 + TGTFunctions.WindowInfo(iCtrlWnd, [iiHandle..iiWindowText]), []);
       iCtrlWnd := GetNextDlgTabItem(iWnd, iCtrlWnd, False);
     Until iCtrlWnd = iFirstCtrlWnd;
     Result := tsSuccessful;
