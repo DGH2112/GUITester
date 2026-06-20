@@ -14,84 +14,6 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 16
-  object Splitter1: TSplitter
-    Left = 0
-    Top = 458
-    Width = 806
-    Height = 3
-    Cursor = crVSplit
-    Align = alBottom
-    ExplicitLeft = 8
-    ExplicitTop = 266
-  end
-  object seCommands: TSynEdit
-    Left = 0
-    Top = 26
-    Width = 806
-    Height = 432
-    Align = alClient
-    ActiveLineColor = clTeal
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -15
-    Font.Name = 'Consolas'
-    Font.Style = []
-    Font.Quality = fqClearTypeNatural
-    TabOrder = 0
-    UseCodeFolding = False
-    Gutter.Font.Charset = DEFAULT_CHARSET
-    Gutter.Font.Color = clWindowText
-    Gutter.Font.Height = -11
-    Gutter.Font.Name = 'Consolas'
-    Gutter.Font.Style = []
-    Gutter.Font.Quality = fqClearTypeNatural
-    Gutter.ShowLineNumbers = True
-    Gutter.UseFontStyle = False
-    Gutter.TrackChanges.Visible = True
-    Gutter.TrackChanges.ModifiedColor = clRed
-    Gutter.Bands = <
-      item
-        Kind = gbkMarks
-        Width = 13
-      end
-      item
-        Kind = gbkLineNumbers
-      end
-      item
-        Kind = gbkFold
-      end
-      item
-        Kind = gbkTrackChanges
-      end
-      item
-        Kind = gbkMargin
-        Width = 3
-      end
-      item
-        Kind = gbkCustom
-        Width = 20
-        OnPaintLines = seCommandsTSynGutterBands5PaintLines
-      end>
-    Highlighter = shGeneral
-    ScrollbarAnnotations = <
-      item
-        AnnType = sbaCarets
-        AnnPos = sbpFullWidth
-        FullRow = False
-      end
-      item
-        AnnType = sbaBookmark
-        AnnPos = sbpLeft
-        FullRow = True
-      end
-      item
-        AnnType = sbaTrackChanges
-        AnnPos = sbpRight
-        FullRow = True
-      end>
-    OnChange = seCommandsChange
-    OnStatusChange = seCommandsStatusChange
-  end
   object atbToolbar: TActionToolBar
     Left = 0
     Top = 0
@@ -128,69 +50,164 @@ object frmTestGUIMainForm: TfrmTestGUIMainForm
     ParentFont = True
     UseSystemFont = False
   end
-  object seOutput: TSynEdit
+  object Panel1: TPanel
     Left = 0
-    Top = 461
+    Top = 26
     Width = 806
-    Height = 152
-    Align = alBottom
-    ActiveLineColor = clTeal
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -15
-    Font.Name = 'Consolas'
-    Font.Style = []
-    Font.Quality = fqClearTypeNatural
-    TabOrder = 3
-    UseCodeFolding = False
-    Gutter.Font.Charset = DEFAULT_CHARSET
-    Gutter.Font.Color = clWindowText
-    Gutter.Font.Height = -11
-    Gutter.Font.Name = 'Consolas'
-    Gutter.Font.Style = []
-    Gutter.Font.Quality = fqClearTypeNatural
-    Gutter.ShowLineNumbers = True
-    Gutter.UseFontStyle = False
-    Gutter.TrackChanges.ModifiedColor = clRed
-    Gutter.Bands = <
-      item
-        Kind = gbkMarks
-        Width = 13
-      end
-      item
-        Kind = gbkLineNumbers
-      end
-      item
-        Kind = gbkFold
-      end
-      item
-        Kind = gbkTrackChanges
-      end
-      item
-        Kind = gbkMargin
-        Width = 3
-      end
-      item
-        Kind = gbkCustom
-        Width = 20
-      end>
-    Highlighter = shGeneral
-    ScrollbarAnnotations = <
-      item
-        AnnType = sbaCarets
-        AnnPos = sbpFullWidth
-        FullRow = False
-      end
-      item
-        AnnType = sbaBookmark
-        AnnPos = sbpLeft
-        FullRow = True
-      end
-      item
-        AnnType = sbaTrackChanges
-        AnnPos = sbpRight
-        FullRow = True
-      end>
+    Height = 587
+    Align = alClient
+    BevelOuter = bvNone
+    TabOrder = 2
+    ExplicitLeft = 320
+    ExplicitTop = 312
+    ExplicitWidth = 185
+    ExplicitHeight = 41
+    object Splitter1: TSplitter
+      Left = 0
+      Top = 425
+      Width = 806
+      Height = 10
+      Cursor = crVSplit
+      Align = alBottom
+      AutoSnap = False
+      ExplicitTop = 462
+    end
+    object seCommands: TSynEdit
+      Left = 0
+      Top = 0
+      Width = 806
+      Height = 425
+      Align = alClient
+      ActiveLineColor = clTeal
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -15
+      Font.Name = 'Consolas'
+      Font.Style = []
+      Font.Quality = fqClearTypeNatural
+      TabOrder = 0
+      UseCodeFolding = False
+      Gutter.Font.Charset = DEFAULT_CHARSET
+      Gutter.Font.Color = clWindowText
+      Gutter.Font.Height = -11
+      Gutter.Font.Name = 'Consolas'
+      Gutter.Font.Style = []
+      Gutter.Font.Quality = fqClearTypeNatural
+      Gutter.ShowLineNumbers = True
+      Gutter.UseFontStyle = False
+      Gutter.TrackChanges.Visible = True
+      Gutter.TrackChanges.ModifiedColor = clRed
+      Gutter.Bands = <
+        item
+          Kind = gbkMarks
+          Width = 13
+        end
+        item
+          Kind = gbkLineNumbers
+        end
+        item
+          Kind = gbkFold
+        end
+        item
+          Kind = gbkTrackChanges
+        end
+        item
+          Kind = gbkMargin
+          Width = 3
+        end
+        item
+          Kind = gbkCustom
+          Width = 20
+          OnPaintLines = seCommandsTSynGutterBands5PaintLines
+        end>
+      Highlighter = shGeneral
+      ScrollbarAnnotations = <
+        item
+          AnnType = sbaCarets
+          AnnPos = sbpFullWidth
+          FullRow = False
+        end
+        item
+          AnnType = sbaBookmark
+          AnnPos = sbpLeft
+          FullRow = True
+        end
+        item
+          AnnType = sbaTrackChanges
+          AnnPos = sbpRight
+          FullRow = True
+        end>
+      OnChange = seCommandsChange
+      OnStatusChange = seCommandsStatusChange
+      ExplicitTop = 26
+      ExplicitHeight = 199
+    end
+    object seOutput: TSynEdit
+      Left = 0
+      Top = 435
+      Width = 806
+      Height = 152
+      Align = alBottom
+      ActiveLineColor = clTeal
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -15
+      Font.Name = 'Consolas'
+      Font.Style = []
+      Font.Quality = fqClearTypeNatural
+      TabOrder = 1
+      UseCodeFolding = False
+      Gutter.Font.Charset = DEFAULT_CHARSET
+      Gutter.Font.Color = clWindowText
+      Gutter.Font.Height = -11
+      Gutter.Font.Name = 'Consolas'
+      Gutter.Font.Style = []
+      Gutter.Font.Quality = fqClearTypeNatural
+      Gutter.ShowLineNumbers = True
+      Gutter.UseFontStyle = False
+      Gutter.TrackChanges.ModifiedColor = clRed
+      Gutter.Bands = <
+        item
+          Kind = gbkMarks
+          Width = 13
+        end
+        item
+          Kind = gbkLineNumbers
+        end
+        item
+          Kind = gbkFold
+        end
+        item
+          Kind = gbkTrackChanges
+        end
+        item
+          Kind = gbkMargin
+          Width = 3
+        end
+        item
+          Kind = gbkCustom
+          Width = 20
+        end>
+      Highlighter = shGeneral
+      ScrollbarAnnotations = <
+        item
+          AnnType = sbaCarets
+          AnnPos = sbpFullWidth
+          FullRow = False
+        end
+        item
+          AnnType = sbaBookmark
+          AnnPos = sbpLeft
+          FullRow = True
+        end
+        item
+          AnnType = sbaTrackChanges
+          AnnPos = sbpRight
+          FullRow = True
+        end>
+      ExplicitLeft = -32
+      ExplicitTop = 205
+    end
   end
   object amActions: TActionManager
     ActionBars = <

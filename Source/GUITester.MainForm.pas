@@ -3,8 +3,8 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.923
-  @Date    13 Jun 2026
+  @Version 5.928
+  @Date    19 Jun 2026
 
   @license
 
@@ -76,6 +76,7 @@ Type
     ilGutterStatus: TImageList;
     seOutput: TSynEdit;
     Splitter1: TSplitter;
+    Panel1: TPanel;
     procedure actFileOpenExecute(Sender: TObject);
     procedure actFileParseAndRunExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
