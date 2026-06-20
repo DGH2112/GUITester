@@ -80,12 +80,12 @@ Type
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckCountCommand(Const Statement : IGTStatement) : TGTTestStatus;
-    Function BringToFront(Const Statement : IGTStatement) : TGTTestStatus;
-    Function PositionWindow(Const Statement : IGTStatement) : TGTTestStatus;
-    Function ListWindows(Const Statement : IGTStatement) : TGTTestStatus;
-    Function ListAllChildWindows(Const Statement : IGTStatement) : TGTTestStatus;
-    Function ListChildWindows(Const Statement : IGTStatement) : TGTTestStatus;
-    Function ListTabOrder(Const Statement : IGTStatement) : TGTTestStatus;
+    Function BringToFrontCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function PositionWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListAllChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListTabOrderCommand(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -493,12 +493,12 @@ Begin
   FStatements.Add(stWaitForChildWindow, WaitForChildWindowCommand);
   FStatements.Add(stWait, WaitCommand);
   FStatements.Add(stCheckProcessEnd, CheckProcessEndCommand);
-  FStatements.Add(stBringToFront, BringToFront);
-  FStatements.Add(stPositionWindow, PositionWindow);
-  FStatements.Add(stListWindows, ListWindows);
-  FStatements.Add(stListAllChildWindows, ListAllChildWindows);
-  FStatements.Add(stListChildWindows, ListChildWindows);
-  FStatements.Add(stListTabOrder, ListTabOrder);
+  FStatements.Add(stBringToFront, BringToFrontCommand);
+  FStatements.Add(stPositionWindow, PositionWindowCommand);
+  FStatements.Add(stListWindows, ListWindowsCommand);
+  FStatements.Add(stListAllChildWindows, ListAllChildWindowsCommand);
+  FStatements.Add(stListChildWindows, ListChildWindowsCommand);
+  FStatements.Add(stListTabOrder, ListTabOrderCommand);
 End;
 
 (**
@@ -565,7 +565,7 @@ End;
   @return  a TGTTestStatus
 
 **)
-Function TGTParserStatements.ListAllChildWindows(Const Statement: IGTStatement): TGTTestStatus;
+Function TGTParserStatements.ListAllChildWindowsCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 ResourceString
   strOutputtingChildWindows = 'Outputting ALL Child Windows of "%s":';
@@ -596,7 +596,7 @@ End;
   @return  a TGTTestStatus
 
 **)
-Function TGTParserStatements.ListChildWindows(Const Statement: IGTStatement): TGTTestStatus;
+Function TGTParserStatements.ListChildWindowsCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 ResourceString
   strOutputtingChildWindows = 'Outputting Immediate Child Windows of "%s":';
@@ -628,7 +628,7 @@ End;
   @return  a TGTTestStatus
 
 **)
-Function TGTParserStatements.ListTabOrder(Const Statement: IGTStatement): TGTTestStatus;
+Function TGTParserStatements.ListTabOrderCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 ResourceString
   strOutputTabOrder = 'Outputting Tab Order for Windows Matching "%s"';
@@ -680,7 +680,7 @@ End;
   @return  a TGTTestStatus
 
 **)
-Function TGTParserStatements.ListWindows(Const Statement: IGTStatement): TGTTestStatus;
+Function TGTParserStatements.ListWindowsCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 ResourceString
   strOutputTopLvlWnd = 'Outputting Top Level Windows Matching "%s"';
@@ -714,7 +714,7 @@ End;
   @return  a TGTTestStatus
 
 **)
-Function TGTParserStatements.PositionWindow(Const Statement: IGTStatement): TGTTestStatus;
+Function TGTParserStatements.PositionWindowCommand(Const Statement: IGTStatement): TGTTestStatus;
 
 Const
   iTopParam = 1;
