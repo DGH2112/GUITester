@@ -3,7 +3,7 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 2.196
+  @Version 2.201
   @Date    19 Jun 2026
 
   @license
@@ -112,7 +112,8 @@ Type
     stListWindows,
     stListAllChildWindows,
     stListChildWindows,
-    stListTabOrder
+    stListTabOrder,
+    stListWindowHierarchy
   );
 
   (** An interface to define the behaviour of a parameter (single or multiple tokens) **)

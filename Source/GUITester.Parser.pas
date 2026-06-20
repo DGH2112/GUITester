@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.163
+  @Version 4.447
   @Date    19 Jun 2026
 
   @license
@@ -85,6 +85,7 @@ Type
     Function  ListAllChildWindows() : Boolean;
     Function  ListChildWindows() : Boolean;
     Function  ListTabOrder() : Boolean;
+    Function  ListWindowHierarchy() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -791,6 +792,46 @@ End;
 
 (**
 
+  This method parses the ListWindowHierarchy element of the grammar.
+
+  @precon  None.
+  @postcon The lists all the child windows in tab order that match the window with the given regular
+           expression.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.ListWindowHierarchy: Boolean;
+
+Const
+  strListWindowHierachy = 'ListWindowHierarchy';
+
+Var
+  Statement: IGTStatement;
+  
+Begin
+  Result := CompareText(strListWindowHierachy, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stListWindowHierarchy, Token.Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  If Token().FText = ',' Then
+    Begin
+      MoveToNextNonCommentToken();
+      CheckString();
+      Statement.AddParameter(Token().DeQuote);
+      MoveToNextNonCommentToken();
+    End;
+  CheckSymbol(')');
+End;
+
+(**
+
   This method parses the ListWindows element of the grammar.
 
   @precon  None.
@@ -1113,7 +1154,8 @@ Begin
       ListWindows() Or
       ListAllChildWindows() Or
       ListChildWindows() Or
-      ListTabOrder()
+      ListTabOrder() Or
+      ListWindowHierarchy()
     ) Do
     Begin
       MoveToNextNonCommentToken();

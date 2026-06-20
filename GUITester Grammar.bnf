@@ -4,7 +4,7 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.826
+  @Version 1.943
   @Date    19 Jun 2026
 
   @usesemicolon
@@ -47,7 +47,8 @@
                                <ListWindows>         |
                                <ListALLChildWindows> |
                                <ListChildWindows>    |
-                               <ListTabOrder>
+                               <ListTabOrder>        |
+                               <ListWindowHierarchy>
                          ) ';';
                          
 <Launch>                 ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
@@ -60,7 +61,13 @@
                          
 <WaitForIdle>            ::= 'WAITFORIDLE' '(' <TimeOut> ')';
                          
+<TimeOut>                ::= <IntegerNumber>;
+                         
 <CheckCount>             ::= 'CHECKCOUNT' '(' <MainWindow> ',' <ChildWindow> ',' <TimeOut> ')';
+                         
+<MainWindow>             ::= <StringLiteral>;
+                         
+<ChildWindow>            ::= <StringLiteral>;
                          
 <SendKeys>               ::= 'SENDKEYS' '(' <MainWindow> ',' '[' [ <ExtendedKeyIdentifiers> ] ']' ','
                                ( <Text> | '[' <VKIdentifier> ( ',' <VKIdentifier>)* ']' ) ','
@@ -106,13 +113,11 @@
 <ListChildWindows>       ::= 'LISTCHILDWINDOWS' '(' <MainWindow> ' )';
                          
 <ListTabOrder>           ::= 'LISTTABORDER' '(' <MainWindow> [ ',' <ChildWindow> ] ')';
-                         
-<MainWindow>             ::= <StringLiteral>;
-                         
-<ChildWindow>            ::= <StringLiteral>;
-                         
-<TimeOut>                ::= <IntegerNumber>;
-                         
+
+<ListWindowHierarchy>    ::= 'LISTWINDOWHIERARCHY' '(' <MainWindow> [ ',' <ChildWindow> ] ')';
+
+<WindowName>             ::= <StringLiteral>;
+
 <StringLiteral>          ::= '''' (#32..#127)* '''';
                          
 <IntegerNumber>          ::= ( <Digit> )*;

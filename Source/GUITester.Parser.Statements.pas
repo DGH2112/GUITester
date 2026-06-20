@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 7.182
+  @Version 7.782
   @Author  David Hoyle
-  @Date    19 Jun 2026
+  @Date    20 Jun 2026
   
   @license
 
@@ -86,10 +86,12 @@ Type
     Function ListAllChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListTabOrderCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function ListWindowHierarchyCommand(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
     Procedure StartProcess(Const StartupInfo : TStartupInfo; Var GTProcessInfo : TGTProcessInfo);
+    Procedure OutputChildWindows(Const hParentWnd : HWND; Const iIndent : Integer);
   Public
     Constructor Create(
       Const EditorUpdateEvent : TGTEditorUpdateEvent;
@@ -499,6 +501,7 @@ Begin
   FStatements.Add(stListAllChildWindows, ListAllChildWindowsCommand);
   FStatements.Add(stListChildWindows, ListChildWindowsCommand);
   FStatements.Add(stListTabOrder, ListTabOrderCommand);
+  FStatements.Add(stListWindowHierarchy, ListWindowHierarchyCommand);
 End;
 
 (**
@@ -670,6 +673,53 @@ End;
 
 (**
 
+  This method outputs an indented list of all the windows belonging to the given main window and
+  optionally child window.
+
+  @precon  Statement must be a valid instance.
+  @postcon An indented list of windows information is output portraying the hierarchy.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.ListWindowHierarchyCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strOutputHierarchy = 'Outputting Window Hierarchy for Windows Matching (%1.0n) "%s"';
+  strFindChildWindowByRegExFailed = 'Find child window by regular expression failed (%d, %s)';
+
+Const
+  iMainWindowIdx = 0;
+  iChildWindowIdx = 1;
+  iStartingIndent = 2;
+
+Var
+  iWnd: HWND;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  Try
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+    If Statement.ParameterCount > iChildWindowIdx Then
+      Begin
+        iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd, Statement.Parameter[iChildWindowIdx].Text);
+        If iWnd = 0 Then
+          Raise EGTException.CreateFmt(strFindChildWindowByRegExFailed, [iWnd,
+            Statement.Parameter[iChildWindowIdx].Text]);
+      End;
+    FOutputEvent(strOutputHierarchy, [Int(iWnd), TGTFunctions.WindowClassName(iWnd)]);
+    OutputChildWindows(iWnd, iStartingIndent);
+    Result := tsSuccessful;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
+End;
+
+(**
+
   This method list all windows with either a class name or window text that matches the given regular
   expression in the statement.
 
@@ -701,6 +751,41 @@ Begin
     On E : ERegularExpressionError Do
       Raise EGTException.Create(E.Message);
   End;
+End;
+
+(**
+
+  This is a method that can be called recursively to output window information for the immediate children
+  of the given window with the given indent.
+
+  @precon  None.
+  @postcon The child windows of the given window are output.
+
+  @param   hParentWnd as a HWND as a constant
+  @param   iIndent    as an Integer as a constant
+
+**)
+Procedure TGTParserStatements.OutputChildWindows(Const hParentWnd : HWND; Const iIndent : Integer);
+
+Const
+  iNextIndent = 2;
+
+Var
+  iFirstCtrlWnd, iCtrlWnd : HWND;
+
+Begin
+  iCtrlWnd := GetWindow(hParentWnd, GW_CHILD);
+  If iCtrlWnd = 0 Then
+    Exit;
+  iFirstCtrlWnd := iCtrlWnd;
+  Repeat
+    FOutputEvent(
+      StringOfChar(#32, iIndent) + TGTFunctions.WindowInfo(iCtrlWnd, [iiHandle..iiWindowText]),
+      []
+    );
+    OutputChildWindows(iCtrlWnd, iIndent + iNextIndent);
+    iCtrlWnd := GetWindow(iCtrlWnd, GW_HWNDNEXT);
+  Until iCtrlWnd = 0;
 End;
 
 (**
