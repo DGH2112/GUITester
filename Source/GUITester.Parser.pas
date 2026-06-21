@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.447
-  @Date    19 Jun 2026
+  @Version 4.804
+  @Date    21 Jun 2026
 
   @license
 
@@ -86,6 +86,7 @@ Type
     Function  ListChildWindows() : Boolean;
     Function  ListTabOrder() : Boolean;
     Function  ListWindowHierarchy() : Boolean;
+    Function  WaitForForegroundWindow() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -1148,6 +1149,7 @@ Begin
       WaitForWindow() Or
       WaitForChildWindow() Or
       Wait() Or
+      WaitForforegroundWindow() Or
       CheckProcessEnd() Or
       BringToFront() Or
       PositionWindow() Or
@@ -1260,6 +1262,45 @@ Begin
   Statement.AddParameter(Token().DeQuote);
   MoveToNextNonCommentToken();
   CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  CheckInteger();
+  Statement.AddParameter(Token());
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
+End;
+
+(**
+
+  This method parses the WAITFORTOPWINDOW statement in the grammar.
+
+  @precon  None.
+  @postcon The grammar for WAITFORTOPWINDOW is parse and a statement pushed onto the statement list else
+           if the parsing fails, a parser exception is raised.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.WaitForForegroundWindow: Boolean;
+
+Const
+  strWaitForForegroundWindow = 'WaitForForegroundWindow';
+
+Var
+  Statement: IGTStatement;
+  
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForTopWindow', tmoTiming);{$ENDIF}
+  Result := CompareText(strWaitForForegroundWindow, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stWaitForForegroundWindow, Token().Fline);
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
   MoveToNextNonCommentToken();
   CheckString();
   Statement.AddParameter(Token().DeQuote);

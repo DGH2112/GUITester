@@ -4,8 +4,8 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.943
-  @Date    19 Jun 2026
+  @Version 1.995
+  @Date    21 Jun 2026
 
   @usesemicolon
   @license
@@ -30,101 +30,108 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 **/
-<Goal>                   ::= <Statements>;
-                         
-<Statements>             ::= <Statement>*;
-                         
-<Statement>              ::= ( <Launch>              |
-                               <WaitForIdle>         |
-                               <CheckCount>          |
-                               <SendKeys>            |
-                               <WaitForWindow>       |
-                               <WaitForChildWindow>  |
-                               <Wait>                |
-                               <CheckProcessEnd>     |
-                               <BringToFront>        |
-                               <PositionWindow>      |
-                               <ListWindows>         |
-                               <ListALLChildWindows> |
-                               <ListChildWindows>    |
-                               <ListTabOrder>        |
-                               <ListWindowHierarchy>
-                         ) ';';
-                         
-<Launch>                 ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
-                         
-<Executable>             ::= <StringLiteral>;
-                         
-<Directory>              ::= <StringLiteral>;
-                         
-<CommandLine>            ::= <StringLiteral>;
-                         
-<WaitForIdle>            ::= 'WAITFORIDLE' '(' <TimeOut> ')';
-                         
-<TimeOut>                ::= <IntegerNumber>;
-                         
-<CheckCount>             ::= 'CHECKCOUNT' '(' <MainWindow> ',' <ChildWindow> ',' <TimeOut> ')';
-                         
-<MainWindow>             ::= <StringLiteral>;
-                         
-<ChildWindow>            ::= <StringLiteral>;
-                         
-<SendKeys>               ::= 'SENDKEYS' '(' <MainWindow> ',' '[' [ <ExtendedKeyIdentifiers> ] ']' ','
-                               ( <Text> | '[' <VKIdentifier> ( ',' <VKIdentifier>)* ']' ) ','
-                               <TimeOut>
-                             ')';
-                         
-<ExtendedKeyIdentifiers> ::= <ExtendedKeyIdentifier> [ ',' <ExtendedKeyIdentifier> ];
+<Goal>                    ::= <Statements>;
+                          
+<Statements>              ::= <Statement>*;
+                          
+<Statement>               ::= ( <Launch>                  |
+                                <WaitForIdle>             |
+                                <CheckCount>              |
+                                <CheckTabOrder>           |
+                                <SendKeys>                |
+                                <WaitForWindow>           |
+                                <WaitForChildWindow>      |
+                                <Wait>                    |
+                                <WaitForForegroundWindow> |
+                                <CheckProcessEnd>         |
+                                <BringToFront>            |
+                                <PositionWindow>          |
+                                <ListWindows>             |
+                                <ListALLChildWindows>     |
+                                <ListChildWindows>        |
+                                <ListTabOrder>            |
+                                <ListWindowHierarchy>
+                          ) ';';
+                          
+<Launch>                  ::= 'LAUNCH' '(' <Executable> ',' <Directory> ',' <CommandLine> ')';
+                          
+<Executable>              ::= <StringLiteral>;
+                          
+<Directory>               ::= <StringLiteral>;
+                          
+<CommandLine>             ::= <StringLiteral>;
+                          
+<WaitForIdle>             ::= 'WAITFORIDLE' '(' <TimeOut> ')';
+                          
+<TimeOut>                 ::= <IntegerNumber>;
+                          
+<CheckCount>              ::= 'CHECKCOUNT' '(' <MainWindow> ',' <ChildWindow> ',' <TimeOut> ')';
+                          
+<CheckTabOrder>           ::= 'CHECKTABORDER' '(' <MainWindow> ','
+                              '[' <WindowName> [ ',' <WindowName> ] ']' ')';
+                          
+<MainWindow>              ::= <StringLiteral>;
+                          
+<ChildWindow>             ::= <StringLiteral>;
+                          
+<SendKeys>                ::= 'SENDKEYS' '(' <MainWindow> ',' '[' [ <ExtendedKeyIdentifiers> ] ']' ','
+                                ( <Text> | '[' <VKIdentifier> ( ',' <VKIdentifier>)* ']' ) ','
+                                <TimeOut>
+                              ')';
+                          
+<ExtendedKeyIdentifiers>  ::= <ExtendedKeyIdentifier> [ ',' <ExtendedKeyIdentifier> ];
+                          
+<ExtendedKeyIdentifier>   ::= 'CTRL' | 'SHIFT' | 'ALT';
+                          
+<Text>                    ::= <StringLiteral>;
+                          
+<VKIdentifier>            ::= 'VK_BACK' | 'VK_TAB' | 'VK_RETURN' | 'VK_ESCAPE' | 'VK_END' | 'VK_HOME' |
+                              'VK_LEFT' | 'VK_UP' | 'VK_RIGHT' | 'VK_DOWN' | 'VK_INSERT' | 'VK_DELETE' |
+                              'VK_F1' | 'VK_F2' | 'VK_F3' | 'VK_F4' | 'VK_F5' | 'VK_F6' |
+                              'VK_F7' | 'VK_F8' | 'VK_F9' | 'VK_F10' | 'VK_F11' | 'VK_F12';
+                          
+<WaitForWindow>           ::= 'WAITFORWINDOW' '(' <MainWindow> ',' <TimeOut> ')';
+                          
+<WaitForChildWindow>      ::= 'WAITFORCHILDWINDOW' '(' <MainWindow> ',' <ChildWindow> ',' <TimeOut> ')';
+                          
+<Wait>                    ::= 'WAIT' '(' <TimeOut> ')';
 
-<ExtendedKeyIdentifier>  ::= 'CTRL' | 'SHIFT' | 'ALT';
-
-<Text>                   ::= <StringLiteral>;
-
-<VKIdentifier>           ::= 'VK_BACK' | 'VK_TAB' | 'VK_RETURN' | 'VK_ESCAPE' | 'VK_END' | 'VK_HOME' |
-                             'VK_LEFT' | 'VK_UP' | 'VK_RIGHT' | 'VK_DOWN' | 'VK_INSERT' | 'VK_DELETE' |
-                             'VK_F1' | 'VK_F2' | 'VK_F3' | 'VK_F4' | 'VK_F5' | 'VK_F6' |
-                             'VK_F7' | 'VK_F8' | 'VK_F9' | 'VK_F10' | 'VK_F11' | 'VK_F12';
-                      
-<WaitForWindow>          ::= 'WAITFORWINDOW' '(' <MainWindow> ',' <TimeOut> ')';
-                         
-<WaitForChildWindow>     ::= 'WAITFORCHILDWINDOW' '(' <MainWindow> ',' <ChildWindow> ',' <TimeOut> ')';
-                         
-<Wait>                   ::= 'WAIT' '(' <TimeOut> ')';
-                         
-<CheckProcessEnd>        ::= 'CHECKPROCESSEND' '(' <TimeOut> ')';
-                         
-<BringToFront>           ::= 'BRINGTOFRONT' '(' <MainWindow> ')';
-                         
-<PositionWindow>         ::= 'POSITIONWINDOW' '(' <MainWindow> ',' <Top> ',' <Left> ',' <Height> ','
-                              <Width> ')';
-
-<Top>                    ::= <IntegerNumber>;
-                         
-<Left>                   ::= <IntegerNumber>;
-                         
-<Height>                 ::= <IntegerNumber>;
-                         
-<Width>                  ::= <IntegerNumber>;
-                         
-<ListWindows>            ::= 'LISTWINDOWS' '(' <MainWindow> ' )';                                           
-                         
-<ListALLChildWindows>    ::= 'LISTALLCHILDWINDOWS' '(' <MainWindow> ' )';
-                         
-<ListChildWindows>       ::= 'LISTCHILDWINDOWS' '(' <MainWindow> ' )';
-                         
-<ListTabOrder>           ::= 'LISTTABORDER' '(' <MainWindow> [ ',' <ChildWindow> ] ')';
-
-<ListWindowHierarchy>    ::= 'LISTWINDOWHIERARCHY' '(' <MainWindow> [ ',' <ChildWindow> ] ')';
-
-<WindowName>             ::= <StringLiteral>;
-
-<StringLiteral>          ::= '''' (#32..#127)* '''';
-                         
-<IntegerNumber>          ::= ( <Digit> )*;
-                         
-<Alpha>                  ::= 'a'..'z' | 'A'..'Z' | '_';
-                         
-<Digit>                  ::= '0'..'9';
-                         
-<Identifier>             ::= <Alpha> ( <Alpha> | <Digit> )*;
+<WaitForForegroundWindow> ::= 'WAITFORFORGROUNDWINDOW' '(' <MainWindow> ')';
+                          
+<CheckProcessEnd>         ::= 'CHECKPROCESSEND' '(' <TimeOut> ')';
+                          
+<BringToFront>            ::= 'BRINGTOFRONT' '(' <MainWindow> ')';
+                          
+<PositionWindow>          ::= 'POSITIONWINDOW' '(' <MainWindow> ',' <Top> ',' <Left> ',' <Height> ','
+                               <Width> ')';
+                          
+<Top>                     ::= <IntegerNumber>;
+                          
+<Left>                    ::= <IntegerNumber>;
+                          
+<Height>                  ::= <IntegerNumber>;
+                          
+<Width>                   ::= <IntegerNumber>;
+                          
+<ListWindows>             ::= 'LISTWINDOWS' '(' <MainWindow> ' )';                                           
+                          
+<ListALLChildWindows>     ::= 'LISTALLCHILDWINDOWS' '(' <MainWindow> ' )';
+                          
+<ListChildWindows>        ::= 'LISTCHILDWINDOWS' '(' <MainWindow> ' )';
+                          
+<ListTabOrder>            ::= 'LISTTABORDER' '(' <MainWindow> [ ',' <ChildWindow> ] ')';
+                          
+<ListWindowHierarchy>     ::= 'LISTWINDOWHIERARCHY' '(' <MainWindow> [ ',' <ChildWindow> ] ')';
+                          
+<WindowName>              ::= <StringLiteral>;
+                          
+<StringLiteral>           ::= '''' (#32..#127)* '''';
+                          
+<IntegerNumber>           ::= ( <Digit> )*;
+                          
+<Alpha>                   ::= 'a'..'z' | 'A'..'Z' | '_';
+                          
+<Digit>                   ::= '0'..'9';
+                          
+<Identifier>              ::= <Alpha> ( <Alpha> | <Digit> )*;
 

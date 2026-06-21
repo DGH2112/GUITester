@@ -234,7 +234,7 @@ End;
 
 (**
 
-  This method returns true if the given text is not null and matches the regular expression or the given
+  This method returns true if the given text is not null and matches the regular expression or the given 
   text is null (no match can be performed).
 
   @precon  recFindWindow must have been initialised with Create().
@@ -366,11 +366,11 @@ End;
 
 (**
 
-  This method returns an string with specific characters that represents the window styles for the given
+  This method returns an string with specific characters that represents the window styles for the given 
   window.
 
   @precon  None.
-  @postcon Returns an string with specific characters that represents the window styles for the given
+  @postcon Returns an string with specific characters that represents the window styles for the given 
            window.
 
   @param   hWNd as a HWND as a constant

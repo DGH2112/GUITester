@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 7.782
+  @Version 8.541
   @Author  David Hoyle
-  @Date    20 Jun 2026
+  @Date    21 Jun 2026
   
   @license
 
@@ -87,6 +87,7 @@ Type
     Function ListChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListTabOrderCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindowHierarchyCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function WaitForForegroundWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -497,6 +498,7 @@ Begin
   FStatements.Add(stListChildWindows, ListChildWindowsCommand);
   FStatements.Add(stListTabOrder, ListTabOrderCommand);
   FStatements.Add(stListWindowHierarchy, ListWindowHierarchyCommand);
+  FStatements.Add(stWaitForForegroundWindow, WaitForForegroundWindowCommand);
 End;
 
 (**
@@ -766,13 +768,12 @@ Const
   iNextIndent = 2;
 
 Var
-  iFirstCtrlWnd, iCtrlWnd : HWND;
+  iCtrlWnd : HWND;
 
 Begin
   iCtrlWnd := GetWindow(hParentWnd, GW_CHILD);
   If iCtrlWnd = 0 Then
     Exit;
-  iFirstCtrlWnd := iCtrlWnd;
   Repeat
     FOutputEvent(
       StringOfChar(#32, iIndent) + TGTFunctions.WindowInfo(iCtrlWnd, [iiHandle..iiWindowText]),
@@ -1201,6 +1202,66 @@ Begin
     Begin
       Result := tsFailure;
       FLastCommandError(strWaitTimedOutMain);
+    End;
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method method waits for the fore ground window specified in the Statement to be visible.
+
+  @precon  Statement must be a valid instance.
+  @postcon Waits for the foreground window to be visible else times out.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.WaitForForegroundWindowCommand(
+  Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strWaitTimedOut = 'Wait timed out!';
+  strWaitForFGWnd = 'Wait for foreground window("%s", %1.0n ms)';
+
+Const
+  iDefaultWaitInterval = 100;
+
+Var
+  iWnd : THandle;
+  iStart : UINt64;
+  recFindWindow : TGTFindWindowRec;
+  WindowPLacement : TWindowPlacement;
+  
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'WaitForForegroundWindowCommand', tmoTiming);{$ENDIF}
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  recFindWindow.Create(Statement.Parameter[0].Text);
+  iStart := GetTickCount64;
+  WindowPlacement.showCmd := SW_HIDE;
+  Repeat
+    iWnd := GetForegroundWindow;
+    If iWnd > 0 Then
+      GetWindowPlacement(iWnd, WindowPlacement);
+    Sleep(iDefaultWaitInterval);
+  Until
+    ( // Find Foreground Window
+      (iWnd > 0) And
+      TGTFunctions.Match(iWnd, @recFindWindow) And 
+      (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE]) And
+      (iWnd = GetForegroundWindow)
+    ) Or
+    ( // Timeout
+      GetTickCount64 - iStart > Statement.Parameter[1].Integer
+    );
+  If (iWnd = GetForegroundWindow) And TGTFunctions.Match(iWnd, @recFindWindow) Then
+    Begin
+      Result := tsSuccessful;
+      FOutputEvent(strWaitForFGWnd, [Statement.Parameter[0].Text, Int(GetTickCount64 - iStart)]);
+    End Else
+    Begin
+      Result := tsFailure;
+      FLastCommandError(strWaitTimedOut);
     End;
   FEditorUpdateEvent(Statement.Line, Result);
 End;

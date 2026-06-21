@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 2.201
-  @Date    19 Jun 2026
+  @Version 2.205
+  @Date    21 Jun 2026
 
   @license
 
@@ -106,6 +106,7 @@ Type
     stWaitForWindow,
     stWaitForChildWindow,
     stWait,
+    stWaitForForegroundWindow,
     stCheckProcessEnd,
     stBringToFront,
     stPositionWindow,
