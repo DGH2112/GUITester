@@ -384,11 +384,12 @@ Type
 
 Const
   acStyleAttrs : Array[TGTStyleAttr] Of Char = ('T', 'D', 'V', 'C', 'G');
-  aiStyles : Array[TGTStyleAttr] Of Integer = (WS_TABSTOP, WS_DISABLED, WS_VISIBLE, WS_CHILD, WS_GROUP);
+  aiStyles : Array[TGTStyleAttr] Of NativeInt = (WS_TABSTOP, WS_DISABLED, WS_VISIBLE, WS_CHILD,
+    WS_GROUP);
 
 Var
   eStyle : TGTStyleAttr;
-  iStyle: Integer;
+  iStyle: NativeInt;
 
 Begin
   Result := '';
