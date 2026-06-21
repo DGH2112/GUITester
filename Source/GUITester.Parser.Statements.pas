@@ -135,14 +135,13 @@ ResourceString
 Function FindChildWindowsCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall;
 
 Var
-  recRegExData : PGTFindWindowRec;
+  recFindWindow : PGTFindWindowRec;
 
 Begin
   Result := True;
-  recRegExData := Pointer(lParam);
-  If TGTFunctions.Match(recRegExData.FClassName, TGTFunctions.WindowClassName(hWnd)) And 
-     TGTFunctions.Match(recRegExData.FWindowText, TGTFunctions.WindowText(hWnd)) Then
-    Inc(recRegExData.FCounter);
+  recFindWindow := Pointer(lParam);
+  If TGTFunctions.Match(hWnd, recFindWindow) Then
+    Inc(recFindWindow.FCounter);
 End;
 
 (**
@@ -227,17 +226,13 @@ Var
   hProcess : HINST;
   iLen: Integer;
   iProcessID : DWORD;
-  recRegExData : PGTFindWindowRec;
-  strClassName, strWindowText : String;
+  recFindWindow : PGTFindWindowRec;
   strExecutable : String;
 
 Begin
   Result := True;
-  recRegExData := Pointer(lParam);
-  strClassName := TGTFunctions.WindowClassName(hWnd);
-  strWindowText := TGTFunctions.WindowText(hWnd);
-  If TGTFunctions.Match(recRegExData.FClassName, strClassName) Or
-     TGTFunctions.Match(recRegExData.FWindowText, strWindowText) Then
+  recFindWindow := Pointer(lParam);
+  If TGTFunctions.Match(hWnd, recFindWindow) Then
     Begin
       If GetWindowThreadProcessId(hWnd, iProcessID) = 0 Then
         Exit;
@@ -251,7 +246,7 @@ Begin
       Finally
         CloseHandle(hProcess);
       End;
-      recRegExData.FOutputEvent(#32#32 + TGTFunctions.WindowInfo(hWnd, [iiHandle..iiWindowText]), []);
+      recFindWindow.FOutputEvent(#32#32 + TGTFunctions.WindowInfo(hWnd, [iiHandle..iiWindowText]), []);
     End;
 End;
 

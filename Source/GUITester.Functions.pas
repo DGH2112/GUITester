@@ -3,9 +3,9 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 3.523
+  @Version 4.248
   @Author  David Hoyle
-  @Date    20 Jun 2026
+  @Date    21 Jun 2026
   
   @license
 
@@ -43,21 +43,6 @@ Type
   (** A set of the above enumerate values for WindowInfo() output. **)
   TGTInfoItems = Set Of TGTInfoItem;
 
-  (** A record to encapsulate functions that wrap windows functions and convert them to simple Object
-      Pascal methods. **)
-  TGTFunctions = Record
-  Strict Private
-  Public
-    Class Function WindowClassName(Const wHnd: THandle): String; Static;
-    Class Function WindowText(Const wHnd: THandle): String; Static;
-    Class Function WindowModule(Const wHnd : HWND) : String; Static;
-    Class Function FindWindowByRegEx(Const strRegExText : String) : HWND; Static;
-    Class Function FindChildWindowByRegEx(Const iWnd : HWND; Const strRegExText : String) : HWND; Static;
-    Class Function WindowInfo(Const hWNd : HWND; Const setInfoItems : TGTInfoItems) : String; Static;
-    Class Function Match(Const RegEx : TRegEx; Const strText : String) : Boolean; Static;
-    Class Function WindowStyleAttr(Const hWNd : HWND) : String; Static;
-  End;
-
   (** An event signature for outputting event information to the main application. **)
   TGTOutputEvent = Procedure(Const strMsg : String; Const Args : Array Of Const) Of Object;
 
@@ -74,6 +59,21 @@ Type
   End;
   (** A pointer to the above record. **)
   PGTFindWindowRec = ^TGTFindWindowRec;
+
+  (** A record to encapsulate functions that wrap windows functions and convert them to simple Object
+      Pascal methods. **)
+  TGTFunctions = Record
+  Strict Private
+  Public
+    Class Function  WindowClassName(Const wHnd: THandle): String; Static;
+    Class Function  WindowText(Const wHnd: THandle): String; Static;
+    Class Function  WindowModule(Const wHnd : HWND) : String; Static;
+    Class Function  FindWindowByRegEx(Const strRegExText : String) : HWND; Static;
+    Class Function  FindChildWindowByRegEx(Const iWnd : HWND; Const strRegExText : String) : HWND; Static;
+    Class Function  WindowInfo(Const hWNd : HWND; Const setInfoItems : TGTInfoItems) : String; Static;
+    Class Function  Match(Const iWnd : HWND; Const recFindWindow : PGTFindWindowRec) : Boolean; Static;
+    Class Function  WindowStyleAttr(Const hWNd : HWND) : String; Static;
+  End;
 
 Implementation
 
@@ -104,16 +104,11 @@ Function FindWindowByRegExCallBack(hWnd : HWND; lParam : LPARAM) : BOOL; StdCall
 
 Var
   recFindWindow : PGTFindWindowRec;
-  strClassName : String;
-  strWindowText : String;
 
 Begin
   Result := True;
   recFindWindow := Pointer(lParam);
-  strClassName := TGTFunctions.WindowClassName(hWnd);
-  strWindowtext := TGTFunctions.WindowText(hWnd);
-  If TGTFunctions.Match(recFindWindow.FClassName, strClassName) Then
-    If TGTFunctions.Match(recFindWindow.FWindowText, strWindowText) Then
+  If TGTFunctions.Match(hWnd, recFindWindow) Then
       Begin
         recFindWindow.FWindowHnd := hWnd;
         Result := False;
@@ -163,8 +158,7 @@ Begin
         [roIgnoreCase, roCompiled, roSingleLine]);
     End Else
     Begin
-      FClassName := TRegEx.Create(
-        StringReplace(strClassNameWindowTextRegEx, '&&', '&', [rfReplaceAll]),
+      FClassName := TRegEx.Create(StringReplace(strClassNameWindowTextRegEx, '&&', '&', [rfReplaceAll]),
         [roIgnoreCase, roCompiled, roSingleLine]);
       FWindowText := TRegEx.Create('.', [roIgnoreCase, roCompiled, roSingleLine]);
     End;
@@ -243,20 +237,30 @@ End;
   This method returns true if the given text is not null and matches the regular expression or the given
   text is null (no match can be performed).
 
-  @precon  RegEx must be a valid Regular Expression.
+  @precon  recFindWindow must have been initialised with Create().
   @postcon If there is a match or the text is empty, true is returned.
 
-  @param   RegEx   as a TRegEx as a constant
-  @param   strText as a String as a constant
+  @param   iWnd          as a HWND as a constant
+  @param   recFindWindow as a PGTFindWindowRec as a constant
   @return  a Boolean
 
 **)
-Class Function TGTFunctions.Match(Const RegEx: TRegEx; Const strText: String): Boolean;
+Class Function TGTFunctions.Match(Const iWnd : HWND; Const recFindWindow : PGTFindWindowRec): Boolean;
+
+Var
+  strClassName : String;
+  strWindowText : String;
 
 Begin
+  strClassName := WindowClassName(iWnd);
+  strWindowText := WindowText(iWnd);
   Result := (
-    ((strText.Length > 0) And RegEx.IsMatch(strText)) Or
-    (strText.Length = 0)
+    ((strClassName.Length > 0) And recFindWindow.FClassName.IsMatch(strClassName)) Or
+    (strClassName.Length = 0)
+    ) And
+  (
+    ((strWindowText.Length > 0) And recFindWindow.FWindowText.IsMatch(strWindowText)) Or
+    (strWindowText.Length = 0)
     );
 End;
 
