@@ -3,8 +3,8 @@
   This module contains the interfaces and simple type for use throughout the application.
 
   @Author  David Hoyle
-  @Version 2.205
-  @Date    21 Jun 2026
+  @Version 2.207
+  @Date    02 Jul 2026
 
   @license
 
@@ -104,6 +104,7 @@ Type
     stSendKeys,
     stCheckCount,
     stCheckTabOrder,
+    stCheckClipboard,
     stWaitForWindow,
     stWaitForChildWindow,
     stWait,

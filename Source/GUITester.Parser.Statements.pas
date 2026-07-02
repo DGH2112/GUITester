@@ -2,7 +2,7 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 8.822
+  @Version 9.142
   @Author  David Hoyle
   @Date    02 Jul 2026
   
@@ -89,6 +89,7 @@ Type
     Function CheckTabOrderCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindowHierarchyCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForForegroundWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function CheckClipboardCommand(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
     Procedure CaptureCommaneLine(Const Statement : IGTStatement);
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
@@ -113,6 +114,7 @@ uses
   System.TypInfo,
   System.Math,
   System.StrUtils,
+  Vcl.Clipbrd,
   CodeSiteLogging;
 
 ResourceString
@@ -369,6 +371,56 @@ End;
 
 (**
 
+  This method checks the contents of the clipboard match the given regular expression in the given
+  statement.
+
+  @precon  Statement must be a valid instance.
+  @postcon Raises an exception if the clipboard does not contain text or does not match the given
+           pattern.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.CheckClipboardCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strReExNotFound = 'The regular expression "%s" was not found in the clipboard text (%s)!';
+  strClipboardText = 'Clipboard text "%s" found!';
+  strClipboardDoesNotContain = 'The clipboard does not contain text!';
+
+Var
+  RE : TRegEx;
+
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  Try
+    RE := TRegEx.Create(Statement.Parameter[0].Text, [roIgnoreCase, roMultiLine, roCompiled]);
+    If Clipboard.HasFormat(CF_TEXT) Then
+      Begin
+        If RE.IsMatch(Clipboard.AsText) Then
+          Begin
+            Result := tsSuccessful;
+            FOutputEvent(strClipboardText, [Statement.Parameter[0].Text]);
+          End Else
+          Begin
+            Result := tsFailure;
+            FLastCommandError(Format(strReExNotFound, [Statement.Parameter[0].Text, Clipboard.AsText]));
+          End;
+      End Else
+      Begin
+        Result := tsFailure;
+        FLastCommandError(strClipboardDoesNotContain);
+      End;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
+End;
+
+(**
+
   This method counts the number of child windows matching the second parameter of the statement.
 
   @precon  Statement must be a valid instance.
@@ -541,7 +593,7 @@ Begin
       Else
         strExpected := '';
       If i < Ctrls.Count Then
-        strActual := TGTFunctions.WindowClassName(Ctrls[i]) //: @TODO Match by RegEx.
+        strActual := TGTFunctions.WindowClassName(Ctrls[i])
       Else
         strActual := '';
       recFindWindow.Create(strExpected);
@@ -592,6 +644,7 @@ Begin
   FStatements.Add(stWaitForIdle, WaitForIdleCommand);
   FStatements.Add(stSendKeys, SendKeysCommand);
   FStatements.Add(stCheckCount, CheckCountCommand);
+  FStatements.Add(stCheckClipboard, CheckClipboardCommand);
   FStatements.Add(stWaitForWindow, WaitForWindowCommand);
   FStatements.Add(stWaitForChildWindow, WaitForChildWindowCommand);
   FStatements.Add(stWait, WaitCommand);

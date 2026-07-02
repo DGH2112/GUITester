@@ -4,7 +4,7 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.826
+  @Version 4.960
   @Date    02 Jul 2026
 
   @license
@@ -88,6 +88,7 @@ Type
     Function  CheckTabOrder() : Boolean;
     Function  ListWindowHierarchy() : Boolean;
     Function  WaitForForegroundWindow() : Boolean;
+    Function  CheckClipboard() : Boolean;
   Public
     Constructor Create();
     Destructor Destroy(); Override;
@@ -192,6 +193,38 @@ Begin
     Result := ttIntegerNumber
   Else
     Result := ttUnknown;
+End;
+
+(**
+
+  This method parses the CHECKCLIPBOARD element of the grammar.
+
+  @precon  None.
+  @postcon If parsing fails an exception is raised.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.CheckClipboard: Boolean;
+
+Const
+  strCheckClipboard = 'CheckClipboard';
+
+Var
+  Statement: IGTStatement;
+
+Begin
+  Result := CompareText(strCheckClipboard, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stCheckClipboard, Token().FLine);
+  MoveToNextNonCommentToken();;
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
 End;
 
 (**
@@ -1220,7 +1253,8 @@ Begin
       ListTabOrder() Or
       ListWindowHierarchy() Or
       CheckCount() Or
-      CheckTabOrder()
+      CheckTabOrder() Or
+      CheckClipboard()
     ) Do
     Begin
       MoveToNextNonCommentToken();
