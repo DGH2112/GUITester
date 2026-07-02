@@ -103,6 +103,7 @@ Type
     stWaitForIdle,
     stSendKeys,
     stCheckCount,
+    stCheckTabOrder,
     stWaitForWindow,
     stWaitForChildWindow,
     stWait,

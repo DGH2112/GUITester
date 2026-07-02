@@ -4,8 +4,8 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 1.995
-  @Date    21 Jun 2026
+  @Version 1.997
+  @Date    02 Jul 2026
 
   @usesemicolon
   @license
@@ -67,7 +67,7 @@
                           
 <CheckCount>              ::= 'CHECKCOUNT' '(' <MainWindow> ',' <ChildWindow> ',' <TimeOut> ')';
                           
-<CheckTabOrder>           ::= 'CHECKTABORDER' '(' <MainWindow> ','
+<CheckTabOrder>           ::= 'CHECKTABORDER' '(' <MainWindow> [ ',' <ChildWindow> ] ','
                               '[' <WindowName> [ ',' <WindowName> ] ']' ')';
                           
 <MainWindow>              ::= <StringLiteral>;

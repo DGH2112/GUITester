@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.804
-  @Date    21 Jun 2026
+  @Version 4.826
+  @Date    02 Jul 2026
 
   @license
 
@@ -85,6 +85,7 @@ Type
     Function  ListAllChildWindows() : Boolean;
     Function  ListChildWindows() : Boolean;
     Function  ListTabOrder() : Boolean;
+    Function  CheckTabOrder() : Boolean;
     Function  ListWindowHierarchy() : Boolean;
     Function  WaitForForegroundWindow() : Boolean;
   Public
@@ -329,6 +330,67 @@ ResourceString
 Begin
   If CompareText(strSymbol, Token.FText) <> 0 Then
     RaiseParserException(strExpectedButFound, [strSymbol, Token.FText, Token.FLine, Token.FColumn]);
+End;
+
+(**
+
+  This method parses the CheckTabOrder element of the grammar.
+
+  @precon  None.
+  @postcon The checks the lists all the immediate child windows in tab order that match the main window
+           with the given regular expression.
+
+  @return  a Boolean
+
+**)
+Function TGTParser.CheckTabOrder: Boolean;
+
+Const
+  strCheckTabOrder = 'CheckTabOrder';
+
+Var
+  Statement: IGTStatement;
+  TabOrder  :IList<TGTToken>;
+
+Begin
+  Result := CompareText(strCheckTabOrder, Token.FText) = 0;
+  If Not Result Then
+    Exit;
+  Statement := Add(stCheckTabOrder, Token.Fline);
+  TabOrder := TCollections.CreateList<TGTToken>;
+  MoveToNextNonCommentToken();
+  CheckSymbol('(');
+  MoveToNextNonCommentToken();
+  CheckString();
+  Statement.AddParameter(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  CheckSymbol(',');
+  MoveToNextNonCommentToken();
+  If Token().FText <> '[' Then
+    Begin
+      Statement.AddParameter(Token().DeQuote);
+      MoveToNextNonCommentToken();
+      CheckSymbol(',');
+      MoveToNextNonCommentToken();
+    End;
+  CheckSymbol('[');
+  MoveToNextNonCommentToken();
+  // First Tab Window
+  CheckString();
+  TabOrder.Add(Token().DeQuote);
+  MoveToNextNonCommentToken();
+  // Additional Windows
+  While Token().FText = ',' Do
+    Begin
+      MoveToNextNonCommentToken();
+      CheckString();
+      TabOrder.Add(Token().DeQuote);
+      MoveToNextNonCommentToken();
+    End;
+  Statement.AddParameter(TabOrder.ToArray);
+  CheckSymbol(']');
+  MoveToNextNonCommentToken();
+  CheckSymbol(')');
 End;
 
 (**
@@ -1144,7 +1206,6 @@ Begin
   While (
       Launch() Or
       WaitForIdle() Or
-      CheckCount() Or
       SendKeys() Or
       WaitForWindow() Or
       WaitForChildWindow() Or
@@ -1157,7 +1218,9 @@ Begin
       ListAllChildWindows() Or
       ListChildWindows() Or
       ListTabOrder() Or
-      ListWindowHierarchy()
+      ListWindowHierarchy() Or
+      CheckCount() Or
+      CheckTabOrder()
     ) Do
     Begin
       MoveToNextNonCommentToken();

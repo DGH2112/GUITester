@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 8.541
+  @Version 8.822
   @Author  David Hoyle
-  @Date    21 Jun 2026
+  @Date    02 Jul 2026
   
   @license
 
@@ -86,6 +86,7 @@ Type
     Function ListAllChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListChildWindowsCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListTabOrderCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function CheckTabOrderCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function ListWindowHierarchyCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function WaitForForegroundWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
     // General Methods
@@ -111,11 +112,14 @@ uses
   System.RegularExpressionsCore,
   System.TypInfo,
   System.Math,
+  System.StrUtils,
   CodeSiteLogging;
 
 ResourceString
   (** A resource string message for not being able to find a window with a specific class name. **)
   strWindowNotFound = 'Window with class name "%s" was not found!';
+  (** A resource string message for a failure to find a child window by an regular expression.. **)
+  strFindChildWindowByRegExFailed = 'Find child window by regular expression failed (%d, %s)';
 
 (**
 
@@ -382,8 +386,8 @@ ResourceString
 
 Const
   iMainWindowIdx = 0;
-  iIntCountIdx = 2;
   iChildWindowIdx = 1;
+  iIntCountIdx = 2;
 
 Var
   iWnd : HWND;
@@ -462,6 +466,107 @@ End;
 
 (**
 
+  This method checks the tab order of the main window/child window against the list of tab items.
+
+  @precon  Statement must be a valid instance.
+  @postcon The tab order is checks and an exception is raise if the actual and expected do not
+           correspond.
+
+  @nometric Toxicity LongVariableList
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.CheckTabOrderCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+ResourceString
+  strOutputTabOrder = 'Outputting Tab Order for Windows Matching "%s"';
+  strExpectedActualMatch = '  Expected: "%s", Actual: %d "%s", Match: [%s]';
+  strMatch = 'Match';
+  strExpectedTabStops = 'Expected %d tab stops but actually found %s tab stops!';
+
+Const
+  iMainWindowIdx = 0;
+  iChildWindowIdx = 1;
+  iTabWindows = 2;
+
+Var
+  iCtrlWnd: HWND;
+  iFirstCtrlWnd: HWND;
+  iWnd: HWND;
+  Ctrls : IList<HWND>;
+  i : Integer;
+  strExpected, strActual : String;
+  recFindWindow : TGTFindWindowRec;
+  boolResult : Boolean;
+  Matches : IGTParameter;
+  
+Begin
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  Try
+    iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+    If Statement.ParameterCount > iChildWindowIdx + 1 Then
+      Begin
+        iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd, Statement.Parameter[iChildWindowIdx].Text);
+        If iWnd = 0 Then
+          Raise EGTException.CreateFmt(strFindChildWindowByRegExFailed, [iWnd,
+            Statement.Parameter[iChildWindowIdx].Text]);
+      End;
+    FOutputEvent(strOutputTabOrder, [TGTFunctions.WindowClassName(iWnd)]);
+    Ctrls := TCollections.CreateList<HWND>;
+    // Find Windows with Tabstops
+    iCtrlWnd := GetNextDlgTabItem(iWnd, 0, False);
+    iFirstCtrlWnd := iCtrlWnd;
+    Repeat
+      Ctrls.Add(iCtrlWnd);
+      iCtrlWnd := GetNextDlgTabItem(iWnd, iCtrlWnd, False);
+    Until iCtrlWnd = iFirstCtrlWnd;
+    // Check count is the same
+    Case Statement.ParameterCount Of
+      iTabWindows:     Matches := Statement.Parameter[iTabWindows - 1];
+      iTabWindows + 1: Matches := Statement.Parameter[iTabWindows];
+    End;
+    boolResult := Ctrls.Count = Matches.Count;
+    If Not boolResult Then
+      Raise EGTException.CreateFmt(strExpectedTabStops, [Matches.Count, Ctrls.Count]);
+    // Pad Ctrls found with 0 if there are more windows in the parameter list
+    While Ctrls.Count < Matches.Count Do
+      Ctrls.Add(0);
+    // Cycle through matches
+    i := 0;
+    Repeat
+      If i < Matches.Count Then
+        strExpected := Matches[i].FText
+      Else
+        strExpected := '';
+      If i < Ctrls.Count Then
+        strActual := TGTFunctions.WindowClassName(Ctrls[i]) //: @TODO Match by RegEx.
+      Else
+        strActual := '';
+      recFindWindow.Create(strExpected);
+      boolResult := boolResult And TGTFunctions.Match(Ctrls[i], @recFindWindow);
+      FOutputEvent(strExpectedActualMatch, [
+        strExpected,
+        Ctrls[i],
+        strActual,
+        IfThen(TGTFunctions.Match(Ctrls[i], @recFindWindow), strMatch, '-')
+      ]);
+      Inc(i);
+    Until i >= Max(Matches.Count, Ctrls.Count);
+    If boolResult Then
+      Result := tsSuccessful
+    Else
+      Result := tsFailure;
+    FEditorUpdateEvent(Statement.Line, Result);
+  Except
+    On E : ERegularExpressionError Do
+      Raise EGTException.Create(E.Message);
+  End;
+End;
+
+(**
+
   A constructor for the TGTParserStatements class.
 
   @precon  None.
@@ -497,6 +602,7 @@ Begin
   FStatements.Add(stListAllChildWindows, ListAllChildWindowsCommand);
   FStatements.Add(stListChildWindows, ListChildWindowsCommand);
   FStatements.Add(stListTabOrder, ListTabOrderCommand);
+  FStatements.Add(stCheckTabOrder, CheckTabOrderCommand);
   FStatements.Add(stListWindowHierarchy, ListWindowHierarchyCommand);
   FStatements.Add(stWaitForForegroundWindow, WaitForForegroundWindowCommand);
 End;
@@ -632,7 +738,6 @@ Function TGTParserStatements.ListTabOrderCommand(Const Statement: IGTStatement):
 
 ResourceString
   strOutputTabOrder = 'Outputting Tab Order for Windows Matching "%s"';
-  strFindChildWindowByRegExFailed = 'Find child window by regular expression failed (%d, %s)';
 
 Const
   iMainWindowIdx = 0;
@@ -684,7 +789,6 @@ Function TGTParserStatements.ListWindowHierarchyCommand(Const Statement: IGTStat
 
 ResourceString
   strOutputHierarchy = 'Outputting Window Hierarchy for Windows Matching (%1.0n) "%s"';
-  strFindChildWindowByRegExFailed = 'Find child window by regular expression failed (%d, %s)';
 
 Const
   iMainWindowIdx = 0;
