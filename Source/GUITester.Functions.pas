@@ -3,9 +3,9 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 4.248
+  @Version 4.327
   @Author  David Hoyle
-  @Date    21 Jun 2026
+  @Date    02 Jul 2026
   
   @license
 
@@ -73,6 +73,8 @@ Type
     Class Function  WindowInfo(Const hWNd : HWND; Const setInfoItems : TGTInfoItems) : String; Static;
     Class Function  Match(Const iWnd : HWND; Const recFindWindow : PGTFindWindowRec) : Boolean; Static;
     Class Function  WindowStyleAttr(Const hWNd : HWND) : String; Static;
+    Class Procedure PositionToLineColumn(Const strText : String; Const iPosition : Integer; Var iLine,
+      iColumn : Integer); Static;
   End;
 
 Implementation
@@ -82,7 +84,9 @@ uses
   System.RegularExpressionsCore,
   System.SysUtils,
   System.StrUtils,
-  GUITester.Interfaces;
+  System.Math,
+  GUITester.Interfaces,
+  CodeSiteLogging;
 
 (**
 
@@ -262,6 +266,25 @@ Begin
     ((strWindowText.Length > 0) And recFindWindow.FWindowText.IsMatch(strWindowText)) Or
     (strWindowText.Length = 0)
     );
+End;
+
+Class Procedure TGTFunctions.PositionToLineColumn(Const strText: String; Const iPosition: Integer;
+  Var iLine, iColumn: Integer);
+
+Var
+  i : Integer;
+
+Begin
+  iLine := 1;
+  iColumn := 1;
+  For i := 1 To Min(Length(strText), iPosition - 1) Do
+    If strText[i] = #10 Then
+      Begin
+        Inc(iLIne);
+        iColumn := 1;
+      End Else
+    If strText[i] <> #13 Then
+      Inc(iColumn);
 End;
 
 (**

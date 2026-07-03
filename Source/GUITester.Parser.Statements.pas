@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 9.142
+  @Version 9.253
   @Author  David Hoyle
-  @Date    02 Jul 2026
+  @Date    03 Jul 2026
   
   @license
 
@@ -386,11 +386,18 @@ Function TGTParserStatements.CheckClipboardCommand(Const Statement: IGTStatement
 
 ResourceString
   strReExNotFound = 'The regular expression "%s" was not found in the clipboard text (%s)!';
-  strClipboardText = 'Clipboard text "%s" found!';
+  strTextFound = 'Text "%s" found (%d,%d)!';
   strClipboardDoesNotContain = 'The clipboard does not contain text!';
 
+Const
+  iWaitIntervalForRetry = 100;
+
 Var
+  boolGotText: Boolean;
+  M: TMatch;
   RE : TRegEx;
+  iLine, iColumn : Integer;
+  strClipboardText: String;
 
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
@@ -398,10 +405,22 @@ Begin
     RE := TRegEx.Create(Statement.Parameter[0].Text, [roIgnoreCase, roMultiLine, roCompiled]);
     If Clipboard.HasFormat(CF_TEXT) Then
       Begin
-        If RE.IsMatch(Clipboard.AsText) Then
+        boolGotText := False;
+        Repeat
+          Try
+            strClipboardText := Clipboard.AsText;
+            boolGotText := True;
+          Except
+            On E : EClipboardException Do
+              Sleep(iWaitIntervalForRetry);
+          End;
+        Until boolGotText;
+        M := RE.Match(strClipboardText);
+        If M.Success Then
           Begin
             Result := tsSuccessful;
-            FOutputEvent(strClipboardText, [Statement.Parameter[0].Text]);
+            TGTFunctions.PositionToLineColumn(strClipboardText, M.Index, iLine, iColumn);
+            FOutputEvent(strTextFound, [Statement.Parameter[0].Text, iLine, iColumn]);
           End Else
           Begin
             Result := tsFailure;
