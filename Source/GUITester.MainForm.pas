@@ -3,8 +3,8 @@
   This module contains the main programme for the GUI Tester.
 
   @Author  David Hoyle
-  @Version 5.928
-  @Date    19 Jun 2026
+  @Version 6.254
+  @Date    04 Jul 2026
 
   @license
 
@@ -77,6 +77,9 @@ Type
     seOutput: TSynEdit;
     Splitter1: TSplitter;
     Panel1: TPanel;
+    actFileExit: TAction;
+    tmEditTimer: TTimer;
+    procedure actFileExitExecute(Sender: TObject);
     procedure actFileOpenExecute(Sender: TObject);
     procedure actFileParseAndRunExecute(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -85,11 +88,14 @@ Type
     procedure seCommandsStatusChange(Sender: TObject; Changes: TSynStatusChanges);
     procedure seCommandsTSynGutterBands5PaintLines(RT: ID2D1RenderTarget; ClipR: TRect; const FirstRow,
       LastRow: Integer; var DoDefaultPainting: Boolean);
+    procedure tmEditTimerTimer(Sender: TObject);
   Strict Private
     FCurrentFile      : String;
     FGutterImageDict  : IDictionary<Integer, Integer>;
     FLastCommandError : String;
     FParserStatements : IGTParserStatements;
+    FLastParseTime    : Int64;
+    FLastEditTime     : Int64;
   Strict Protected
     Procedure LoadSettings();
     Procedure SaveSettings();
@@ -100,6 +106,7 @@ Type
     Procedure EditorUpdateEvent(Const iLine : Integer; Const eStatus : TGTTestStatus);
     Procedure LastCommandError(Const strMsg : String);
     Procedure OutputEvent(Const strMsg : String; Const Args : Array Of Const);
+    Procedure ParserScript();
   Public
   End;
 
@@ -140,6 +147,22 @@ Const
 {$R *.dfm}
 
 {.$DEFINE CODESITE}
+
+(**
+
+  This is an on execute event handler for the File Exit action.
+
+  @precon  None.
+  @postcon Closes the application.
+
+  @param   Sender as a TObject
+
+**)
+Procedure TfrmTestGUIMainForm.actFileExitExecute(Sender: TObject);
+
+Begin
+  Close;
+End;
 
 (**
 
@@ -266,7 +289,10 @@ begin
   seCommandsStatusChange(Self, [scAll]);
   FParserStatements := TGTParserStatements.Create(
     EditorUpdateEvent, LastCommandError, OutputEvent
-  )
+  );
+  FLastParseTime := 0;
+  FLastEditTime := 1;
+  tmEditTimer.Enabled := True;
 end;
 
 (**
@@ -440,6 +466,42 @@ End;
 
 (**
 
+  This method parses the editor script and output an issues along with marking up the editor gutter with
+  the status of the script.
+
+  @precon  None.
+  @postcon The script is parsed and the editor gutter updated.
+
+**)
+Procedure TfrmTestGUIMainForm.ParserScript;
+
+Var
+  Parser: IGTParser;
+  Statements: IGTStatements;
+  Timer: TStopwatch;
+
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'actFileParseAndRunExecute', tmoTiming);{$ENDIF}
+  Timer := TStopwatch.Create();
+  Timer.Start;
+  seCommands.Indicators.Clear;
+  Parser := TGTParser.Create();
+  Parser.Parse(seCommands.Lines.Text);
+  If Parser.LastError <> '' Then
+    OutputEvent(Parser.LastError, []);
+  Timer.Stop;
+  If Supports(Parser, IGTStatements, Statements) Then
+    Begin
+      MarkLinesWithStatements(Statements);
+      If Parser.LastError <> '' Then
+        EditorUpdateEvent(Parser.Line, tsFailure);
+    End;
+  FLastEditTime := 0;
+  FLastParseTime := 0;
+End;
+
+(**
+
   This method processes each statement in the statement list one at a time and stops of a statement
   fails.
 
@@ -538,6 +600,8 @@ Begin
     Begin
       FGutterImageDict.Clear;
       seCommands.InvalidateGutter();
+      FLastEditTime := GetTickCount64;
+      FLastParseTime := 0;
     End;
 End;
 
@@ -599,6 +663,31 @@ Begin
       If FGutterImageDict.TryGetValue(iLine, iImgIndex) Then
         ImageListDraw(RT, ilGutterStatus, ClipR.Left, iY, iImgIndex);
     End;
+End;
+
+(**
+
+  This is an on timer event handler for parsing the script in real-time.
+
+  @precon  None.
+  @postcon If the text of the script has changed and the update interval passed, the script is re-parsed
+           and the editor gutter status updated.
+
+  @param   Sender as a TObject
+
+**)
+Procedure TfrmTestGUIMainForm.tmEditTimerTimer(Sender: TObject);
+
+Const
+  iUpdateInterval = 500;
+
+Begin
+  If Not Visible Then
+    Exit;
+  If FLastEditTime = 0 Then
+    Exit;
+  If FLastEditTime < GetTickCount64 - iUpdateInterval Then
+    ParserScript();
 End;
 
 End.
