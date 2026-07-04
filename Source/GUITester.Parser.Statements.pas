@@ -2,9 +2,9 @@
   
   This module contains a class which encapsulates the parser statements that can be executed.
 
-  @Version 9.253
+  @Version 11.108
   @Author  David Hoyle
-  @Date    03 Jul 2026
+  @Date    04 Jul 2026
   
   @license
 
@@ -79,6 +79,7 @@ Type
     Function WaitCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckProcessEndCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function SendKeysCommand(Const Statement : IGTStatement) : TGTTestStatus;
+    Function SendKeysIfCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function CheckCountCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function BringToFrontCommand(Const Statement : IGTStatement) : TGTTestStatus;
     Function PositionWindowCommand(Const Statement : IGTStatement) : TGTTestStatus;
@@ -95,6 +96,11 @@ Type
     Procedure SetupStartupInfo(Var StartupInfo : TStartupInfo);
     Procedure StartProcess(Const StartupInfo : TStartupInfo; Var GTProcessInfo : TGTProcessInfo);
     Procedure OutputChildWindows(Const hParentWnd : HWND; Const iIndent : Integer);
+    Function  RequiresExtended(Const iKey : WORD) : Boolean;
+    Procedure SendKeys(Const strPattern : String; Const iWnd : HWND; Const Msg : UINT;
+      Const wParam : WPARAM; Const boolIsVirtualKey : Boolean = False);
+    Procedure ProcessKeys(Const strClassName : String; Const iWnd : HWND;
+      Const ExtendedKeys, Keys : IGTParameter);
   Public
     Constructor Create(
       Const EditorUpdateEvent : TGTEditorUpdateEvent;
@@ -118,10 +124,11 @@ uses
   CodeSiteLogging;
 
 ResourceString
-  (** A resource string message for not being able to find a window with a specific class name. **)
-  strWindowNotFound = 'Window with class name "%s" was not found!';
   (** A resource string message for a failure to find a child window by an regular expression.. **)
   strFindChildWindowByRegExFailed = 'Find child window by regular expression failed (%d, %s)';
+  (** A resource string message for not being able to find a window with a specific class name by regular
+      expressions. **)
+  strFindWindowByRegExFailed = 'Find Window by Regular Expression failed in statement %s!';
 
 (**
 
@@ -320,10 +327,7 @@ Begin
       Win32Check(BringWindowToTop(iWnd));
       Result := tsSuccessful;
     End Else
-    Begin
-      Result := tsFailure;
-      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].Text.DeQuotedString]));
-    End;
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -467,6 +471,8 @@ Var
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+  If iWnd = 0 Then
+    Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
   Try
     recRegExData.Create(Statement.Parameter[iChildWindowIdx].Text);
     recRegExData.FOutputEvent := FOutputEvent;
@@ -543,7 +549,7 @@ End;
   @postcon The tab order is checks and an exception is raise if the actual and expected do not
            correspond.
 
-  @nometric Toxicity LongVariableList
+  @nometrics
 
   @param   Statement as an IGTStatement as a constant
   @return  a TGTTestStatus
@@ -577,6 +583,8 @@ Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Try
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+    If iWNd = 0 Then
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
     If Statement.ParameterCount > iChildWindowIdx + 1 Then
       Begin
         iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd, Statement.Parameter[iChildWindowIdx].Text);
@@ -662,6 +670,7 @@ Begin
   FStatements.Add(stLaunch, LaunchCommand);
   FStatements.Add(stWaitForIdle, WaitForIdleCommand);
   FStatements.Add(stSendKeys, SendKeysCommand);
+  FStatements.Add(stSendKeysIf, SendKeysIfCommand);
   FStatements.Add(stCheckCount, CheckCountCommand);
   FStatements.Add(stCheckClipboard, CheckClipboardCommand);
   FStatements.Add(stWaitForWindow, WaitForWindowCommand);
@@ -755,6 +764,8 @@ Var
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
+  If iWnd = 0 Then
+    Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
   FOutputEvent(strOutputtingChildWindows, [TGTFunctions.WindowClassName(iWnd)]);
   recChildData.FParentWHnd := iWnd;
   recChildData.FOutputEvent := FOutputEvent;
@@ -786,6 +797,8 @@ Var
 Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
+  If iWnd = 0 Then
+    Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
   FOutputEvent(strOutputtingChildWindows, [TGTFunctions.WindowClassName(iWnd)]);
   recChildData.FParentWHnd := iWnd;
   recChildData.FOutputEvent := FOutputEvent;
@@ -823,6 +836,8 @@ Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Try
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+    If iWnd = 0 Then
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
     If Statement.ParameterCount > iChildWindowIdx Then
       Begin
         iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd, Statement.Parameter[iChildWindowIdx].Text);
@@ -874,6 +889,8 @@ Begin
   FEditorUpdateEvent(Statement.Line, tsRunning);
   Try
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowIdx].Text);
+    If iWnd = 0 Then
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
     If Statement.ParameterCount > iChildWindowIdx Then
       Begin
         iWnd := TGTFunctions.FindChildWindowByRegEx(iWnd, Statement.Parameter[iChildWindowIdx].Text);
@@ -997,11 +1014,117 @@ Begin
       ));
       Result := tsSuccessful;
     End Else
-    Begin
-      Result := tsFailure;
-      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].Text]));
-    End;
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
   FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method centralise the processing of send key data to the foreground window.
+
+  @precon  ExtendedKeys and Keys must be valid instances.
+  @postcon Key strokes are sent to the foreground window.
+
+  @nometric CycloMetricComplexity
+
+  @param   strClassName as a String as a constant
+  @param   iWnd         as a HWND as a constant
+  @param   ExtendedKeys as an IGTParameter as a constant
+  @param   Keys         as an IGTParameter as a constant
+
+**)
+Procedure TGTParserStatements.ProcessKeys(Const strClassName : String; Const iWnd : HWND;
+  Const ExtendedKeys, Keys : IGTParameter);
+
+Const
+  strCTRLKey = 'CTRL';
+  strSHIFTKey = 'SHIFT';
+  strALTKey = 'ALT';
+  iLowByte = $00FF;
+
+Var
+  i: Integer;
+  iToken: Integer;
+  iResult : Short;
+  ShiftStates : TShiftState;
+  strText : String;
+
+Begin
+  ShiftStates := [];
+  // Find Shift States - Start at 1 as parameter 0 is the text to output.
+  For iToken := 0 To ExtendedKeys.Count - 1 Do
+    If CompareText(ExtendedKeys.Token[iToken].FText, strCTRLKey) = 0 Then
+      Include(ShiftStates, ssCtrl)
+    Else If CompareText(ExtendedKeys.Token[iToken].FText, strSHIFTKey) = 0 Then
+      Include(ShiftStates, ssShift)
+    Else If CompareText(ExtendedKeys.Token[iToken].FText, strALTKey) = 0 Then
+      Include(ShiftStates, ssAlt);
+  // Extended keys down
+  If ssCtrl In ShiftStates Then
+    SendKeys(strClassName, iWnd, WM_KEYDOWN, VK_CONTROL);
+  If ssShift In ShiftStates Then
+    SendKeys(strClassName, iWnd, WM_KEYDOWN, VK_SHIFT);
+  If ssAlt In ShiftStates Then
+    SendKeys(strClassName, iWnd, WM_KEYDOWN, VK_MENU);
+  // Key strokes
+  Case Keys.TokenType Of
+    ttIntegerNumber:
+      Begin
+        For iToken := 0 To Keys.Count - 1 Do
+          Begin
+            iResult := Keys.Token[iToken].AsInteger;
+            SendKeys(strClassName, iWnd, WM_KEYDOWN, iResult And iLowByte, True);
+            SendKeys(strClassName, iWnd, WM_KEYUP, iResult And iLowByte, True);
+          End;
+      End
+  Else
+    strText := Keys.Text;
+    For i := 1 To strText.Length Do
+      Begin
+        iResult := VkKeyScan(strText[i]);
+        If iResult > -1 Then
+          Begin
+            SendKeys(strClassName, iWnd, WM_KEYDOWN, iResult And iLowByte);
+            SendKeys(strClassName, iWnd, WM_KEYUP, iResult And iLowByte);
+          End;
+      End;
+  End;
+  // Extended keys up
+  If ssAlt In ShiftStates Then
+    SendKeys(strClassName, iWnd, WM_KEYUP, VK_MENU);
+  If ssShift In ShiftStates Then
+    SendKeys(strClassName, iWnd, WM_KEYUP, VK_SHIFT);
+  If ssCtrl In ShiftStates Then
+    SendKeys(strClassName, iWnd, WM_KEYUP, VK_CONTROL);
+End;
+
+(**
+
+  This method returns true of the given Virtual Key requires the extended flag.
+
+  @precon  None.
+  @postcon Returns true of the given Virtual Key requires the extended flag.
+
+  @param   iKey as a WORD as a constant
+  @return  a Boolean
+
+**)
+Function TGTParserStatements.RequiresExtended(Const iKey : WORD) : Boolean;
+
+Const
+  aiExtendedVKeys = [VK_RIGHT, VK_LEFT, VK_UP, VK_DOWN, VK_INSERT, VK_DELETE, VK_HOME, VK_END];
+
+Var
+  i : WORD;
+    
+Begin
+  Result := False;
+  For i In aiExtendedVKeys Do
+    If i = iKey Then
+      Begin
+        Result := True;
+        Break;
+      End;
 End;
 
 (**
@@ -1035,12 +1158,51 @@ End;
 
 (**
 
+  This procedure performs the sending of the input to the top most window which has input.
+
+  @precon  Msg must be either WM_KEYDOWN and WM_KEYUP.
+  @postcon The key is sent to the top most window as input.
+
+  @param   strPattern       as a String as a constant
+  @param   iWnd             as a HWND as a constant
+  @param   Msg              as an UINT as a constant
+  @param   wParam           as a WPARAM as a constant
+  @param   boolIsVirtualKey as a Boolean as a constant
+
+**)
+Procedure TGTParserStatements.SendKeys(Const strPattern : String; Const iWnd : HWND; Const Msg : UINT;
+  Const wParam : WPARAM; Const boolIsVirtualKey : Boolean = False);
+
+ResourceString
+  strDoesNotHaveInput = 'The window "%s" does not have input ("%s" has input)!';
+
+Var
+  Inputs: TInput;
+
+Begin
+  If GetForegroundWindow <> iWnd Then
+    Raise EGTException.CreateFmt(strDoesNotHaveInput, [strPattern,
+      TGTFunctions.WindowClassName(GetForegroundWindow)]);
+  ZeroMemory(@Inputs, SizeOf(Inputs));
+  Inputs.Itype := INPUT_KEYBOARD;
+  Inputs.ki.wVk := wParam;
+  Inputs.ki.wScan := wParam;
+  Case Msg Of
+    WM_KEYDOWN: Inputs.ki.dwFlags := 0;
+    WM_KEYUP:   Inputs.ki.dwFlags := KEYEVENTF_KEYUP;
+  End;
+  If boolIsVirtualKey Then
+    If RequiresExtended(Inputs.ki.wVk) Then
+      Inputs.ki.dwFlags := Inputs.ki.dwFlags Or KEYEVENTF_EXTENDEDKEY;
+  SendInput(1, Inputs, SizeOf(TInput));
+End;
+
+(**
+
   This method sends a stream of characters to the applications input method.
 
   @precon  Statement must be a valid instance.
   @postcon The characters are sent to the window.
-
-  @nometric cyclometriccomplexity toxicity
 
   @param   Statement as an IGTStatement as a constant
   @return  a TGTTestStatus
@@ -1048,155 +1210,64 @@ End;
 **)
 Function TGTParserStatements.SendKeysCommand(Const Statement: IGTStatement): TGTTestStatus;
 
-  (**
-
-    This method returns true of the given Virtual Key requires the extended flag.
-
-    @precon  None.
-    @postcon Returns true of the given Virtual Key requires the extended flag.
-
-    @param   iKey as a WORD as a constant
-    @return  a Boolean
-
-  **)
-  Function RequiresExtended(Const iKey : WORD) : Boolean;
-
-  Const
-    aiExtendedVKeys = [VK_RIGHT, VK_LEFT, VK_UP, VK_DOWN, VK_INSERT, VK_DELETE, VK_HOME, VK_END];
-
-  Var
-    i : WORD;
-    
-  Begin
-    Result := False;
-    For i In aiExtendedVKeys Do
-      If i = iKey Then
-        Begin
-          Result := True;
-          Break;
-        End;
-  End;
-
-  (**
-
-    This procedure performs the sending of the input to the top most window which has input.
-
-    @precon  Msg must be either WM_KEYDOWN and WM_KEYUP.
-    @postcon The key is sent to the top most window as input.
-
-    @param   iWnd             as a HWND as a constant
-    @param   Msg              as an UINT as a constant
-    @param   wParam           as a WPARAM as a constant
-    @param   boolIsVirtualKey as a Boolean as a constant
-
-  **)
-  Procedure SendKeys(Const iWnd : HWND; Const Msg : UINT; Const wParam : WPARAM;
-    Const boolIsVirtualKey : Boolean = False);
-
-  ResourceString
-    strDoesNotHaveInput = 'The window "%s" does not have input ("%s" has input)!';
-
-  Var
-    Inputs: TInput;
-
-  Begin
-    If GetForegroundWindow <> iWnd Then
-      Raise EGTException.CreateFmt(strDoesNotHaveInput, [Statement.Parameter[0].Text,
-        TGTFunctions.WindowClassName(GetForegroundWindow)]);
-    ZeroMemory(@Inputs, SizeOf(Inputs));
-    Inputs.Itype := INPUT_KEYBOARD;
-    Inputs.ki.wVk := wParam;
-    Inputs.ki.wScan := wParam;
-    Case Msg Of
-      WM_KEYDOWN: Inputs.ki.dwFlags := 0;
-      WM_KEYUP:   Inputs.ki.dwFlags := KEYEVENTF_KEYUP;
-    End;
-    If boolIsVirtualKey Then
-      If RequiresExtended(Inputs.ki.wVk) Then
-        Inputs.ki.dwFlags := Inputs.ki.dwFlags Or KEYEVENTF_EXTENDEDKEY;
-    SendInput(1, Inputs, SizeOf(TInput));
-  End;
-
 Const
-  strCTRLKey = 'CTRL';
-  strSHIFTKey = 'SHIFT';
-  strALTKey = 'ALT';
-  iLowByte = $00FF;
   iClassNameIdx = 0;
   iExtendedKeysIdx = 1;
   iTextVKeysIdx = 2;
   iWaitTimeIdx = 3;
 
 Var
-  i: Integer;
   iWnd : HWND;
-  iToken: Integer;
-  iResult : Short;
-  ShiftStates : TShiftState;
-  strText : String;
-  P : IGTParameter;
 
 Begin
   {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
   FEditorUpdateEvent(Statement.Line, tsRunning);
-  ShiftStates := [];
   iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iClassNameIdx].Text);
   If iWnd > 0 Then
     Begin
-      // Find Shift States - Start at 1 as parameter 0 is the text to output.
-      P := Statement.Parameter[iExtendedKeysIdx];
-      For iToken := 0 To P.Count - 1 Do
-        If CompareText(P.Token[iToken].FText, strCTRLKey) = 0 Then
-          Include(ShiftStates, ssCtrl)
-        Else If CompareText(P.Token[iToken].FText, strSHIFTKey) = 0 Then
-          Include(ShiftStates, ssShift)
-        Else If CompareText(P.Token[iToken].FText, strALTKey) = 0 Then
-          Include(ShiftStates, ssAlt);
-      // Extended keys down
-      If ssCtrl In ShiftStates Then
-        SendKeys(iWnd, WM_KEYDOWN, VK_CONTROL);
-      If ssShift In ShiftStates Then
-        SendKeys(iWnd, WM_KEYDOWN, VK_SHIFT);
-      If ssAlt In ShiftStates Then
-        SendKeys(iWnd, WM_KEYDOWN, VK_MENU);
-      // Key strokes
-      Case Statement.Parameter[iTextVKeysIdx].TokenType Of
-        ttIntegerNumber:
-          Begin
-            P := Statement.Parameter[iTextVKeysIdx];
-            For iToken := 0 To P.Count - 1 Do
-              Begin
-                iResult := P.Token[iToken].AsInteger;
-                SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte, True);
-                SendKeys(iWnd, WM_KEYUP, iResult And iLowByte, True);
-              End;
-          End
-      Else
-        strText := Statement.Parameter[iTextVKeysIdx].Text;
-        For i := 1 To strText.Length Do
-          Begin
-            iResult := VkKeyScan(strText[i]);
-            If iResult > -1 Then
-              Begin
-                SendKeys(iWnd, WM_KEYDOWN, iResult And iLowByte);
-                SendKeys(iWnd, WM_KEYUP, iResult And iLowByte);
-              End;
-          End;
-      End;
-      // Extended keys up
-      If ssAlt In ShiftStates Then
-        SendKeys(iWnd, WM_KEYUP, VK_MENU);
-      If ssShift In ShiftStates Then
-        SendKeys(iWnd, WM_KEYUP, VK_SHIFT);
-      If ssCtrl In ShiftStates Then
-        SendKeys(iWnd, WM_KEYUP, VK_CONTROL);
+      ProcessKeys(Statement.Parameter[iClassNameIdx].Text, iWnd, Statement.Parameter[iExtendedKeysIdx],
+        Statement.Parameter[iTextVKeysIdx]);
       Sleep(Statement.Parameter[iWaitTimeIdx].Integer);
       Result := tsSuccessful;
     End Else
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
+  FEditorUpdateEvent(Statement.Line, Result);
+End;
+
+(**
+
+  This method sends a stream of characters to the applications input method IF the foreground window that
+  has input exists.
+
+  @precon  Statement must be a valid instance.
+  @postcon The characters are sent to the window.
+
+  @param   Statement as an IGTStatement as a constant
+  @return  a TGTTestStatus
+
+**)
+Function TGTParserStatements.SendKeysIfCommand(Const Statement: IGTStatement): TGTTestStatus;
+
+Const
+  iClassNameIdx = 0;
+  iExtendedKeysIdx = 1;
+  iTextVKeysIdx = 2;
+  iWaitTimeIdx = 3;
+
+Var
+  iWnd : HWND;
+
+Begin
+  {$IFDEF CODESITE}CodeSite.TraceMethod(Self, 'SendKeysCommand', tmoTiming);{$ENDIF}
+  FEditorUpdateEvent(Statement.Line, tsRunning);
+  iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iClassNameIdx].Text);
+  If iWnd > 0 Then
     Begin
-      Result := tsFailure;
-      FLastCommandError(Format(strWindowNotFound, [Statement.Parameter[0].Text]));
+      ProcessKeys(Statement.Parameter[iClassNameIdx].Text, iWnd, Statement.Parameter[iExtendedKeysIdx],
+        Statement.Parameter[iTextVKeysIdx]);
+      Sleep(Statement.Parameter[iWaitTimeIdx].Integer);
     End;
+  Result := tsSuccessful;
   FEditorUpdateEvent(Statement.Line, Result);
 End;
 
@@ -1349,8 +1420,9 @@ Begin
   WindowPlacement.showCmd := SW_HIDE;
   Repeat
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[iMainWindowRegExIdx].Text);
-    If iWnd > 0 Then
-      GetWindowPlacement(iWnd, WindowPlacement);
+    If iWnd = 0 Then
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
+    GetWindowPlacement(iWnd, WindowPlacement);
     Sleep(iDefaultWaitInterval);
   Until ((iWnd > 0) And (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE])) Or
     (GetTickCount64 - iStart > Statement.Parameter[iWaitTimeIdx].Integer);
@@ -1529,8 +1601,9 @@ Begin
   WindowPlacement.showCmd := SW_HIDE;
   Repeat
     iWnd := TGTFunctions.FindWindowByRegEx(Statement.Parameter[0].Text);
-    If iWnd > 0 Then
-      GetWindowPlacement(iWnd, WindowPlacement);
+    If iWnd = 0 Then
+      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [Statement.AsString]);
+    GetWindowPlacement(iWnd, WindowPlacement);
     Sleep(iDefaultWaitInterval);
   Until ((iWnd > 0) And (WindowPlacement.showCmd In [SW_NORMAL, SW_MAXIMIZE])) Or
     (GetTickCount64 - iStart > Statement.Parameter[1].Integer);

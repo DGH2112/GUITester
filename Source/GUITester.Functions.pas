@@ -3,9 +3,9 @@
   This module contains a record to encapsulate methods that call windows API functions where the data
   is converted to Object Pascal types.
 
-  @Version 4.327
+  @Version 4.387
   @Author  David Hoyle
-  @Date    02 Jul 2026
+  @Date    04 Jul 2026
   
   @license
 
@@ -216,9 +216,6 @@ End;
 **)
 Class Function TGTFunctions.FindWindowByRegEx(Const strRegExText : String): HWND;
 
-ResourceString
-  strFindWindowByRegExFailed = 'FindWindowByRegEx failed (%s)';
-
 Var
   recFindWindow : TGTFindWindowRec;
   
@@ -228,8 +225,6 @@ Begin
     recFindWindow.FWindowHnd := 0;
     EnumWindows(@FindWindowByRegExCallBack, LPARAM(@recFindWindow));
     Result := recFindWindow.FWindowHnd;
-    If Result = 0 Then
-      Raise EGTException.CreateFmt(strFindWindowByRegExFailed, [strRegExText]);
   Except
     On E : ERegularExpressionError Do
       Raise EGTException.Create(E.Message);
@@ -268,6 +263,19 @@ Begin
     );
 End;
 
+(**
+
+  This method converts a text stream position to a line an column position in the text.
+
+  @precon  None.
+  @postcon Converts a text stream position to a line an column position in the text.
+
+  @param   strText   as a String as a constant
+  @param   iPosition as an Integer as a constant
+  @param   iLine     as an Integer as a reference
+  @param   iColumn   as an Integer as a reference
+
+**)
 Class Procedure TGTFunctions.PositionToLineColumn(Const strText: String; Const iPosition: Integer;
   Var iLine, iColumn: Integer);
 

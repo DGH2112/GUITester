@@ -4,8 +4,8 @@
   building a list of statements to execute.
 
   @Author  David Hoyle
-  @Version 4.960
-  @Date    02 Jul 2026
+  @Version 5.008
+  @Date    04 Jul 2026
 
   @license
 
@@ -1080,7 +1080,7 @@ End;
   @postcon The grammar for SENDKEYS is parse and a statement pushed onto the statement list else
            if the parsing fails, a parser exception is raised.
 
-  @nometric toxicity
+  @nometric toxicity longmethod
 
   @return  a Boolean
 
@@ -1098,6 +1098,7 @@ ResourceString
 
 Const
   strSENDKEYS = 'SENDKEYS';
+  strSENDKEYSIF = 'SENDKEYSIF';
   strExtendedKeys : TArray<String> = [ 'ALT', 'CTRL', 'SHIFT' ];
   astrVirtualKeys : Array[0..23] Of TGTVirtualKey = (
     (FName: 'VK_BACK';   FCode: VK_BACK),
@@ -1162,8 +1163,14 @@ Var
 Begin
   Result := CompareText(strSENDKEYS, Token.FText) = 0;
   If Not Result Then
-    Exit;
-  Statement := Add(stSendKeys, Token().FLine);
+    Begin
+      Result := CompareText(strSENDKEYSIF, Token.FText) = 0;
+      If Not Result Then
+        Exit
+      Else
+        Statement := Add(stSendKeysIf, Token().FLine);
+    End Else
+      Statement := Add(stSendKeys, Token().FLine);
   ExtendedKeys := TCollections.CreateList<TGTToken>;
   VKTokens := TCollections.CreateList<TGTToken>;
   MoveToNextNonCommentToken();;

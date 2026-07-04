@@ -4,8 +4,8 @@
   used to perform user actions to test an applications behaviour.
 
   @Author  David Hoyle
-  @Version 2.022
-  @Date    02 Jul 2026
+  @Version 2.059
+  @Date    03 Jul 2026
 
   @usesemicolon
   @license
@@ -40,6 +40,7 @@
                                 <CheckTabOrder>           |
                                 <CheckClipboard>          |
                                 <SendKeys>                |
+                                <SendKeysIf>              |
                                 <WaitForWindow>           |
                                 <WaitForChildWindow>      |
                                 <Wait>                    |
@@ -78,6 +79,11 @@
 <ChildWindow>             ::= <StringLiteral>;
                           
 <SendKeys>                ::= 'SENDKEYS' '(' <MainWindow> ',' '[' [ <ExtendedKeyIdentifiers> ] ']' ','
+                                ( <Text> | '[' <VKIdentifier> ( ',' <VKIdentifier>)* ']' ) ','
+                                <TimeOut>
+                              ')';
+                          
+<SendKeysIf>                ::= 'SENDKEYSIF' '(' <MainWindow> ',' '[' [ <ExtendedKeyIdentifiers> ] ']' ','
                                 ( <Text> | '[' <VKIdentifier> ( ',' <VKIdentifier>)* ']' ) ','
                                 <TimeOut>
                               ')';

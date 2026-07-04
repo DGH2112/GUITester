@@ -4,8 +4,8 @@
   statements.
 
   @Author  David Hoyle
-  @Version 1.343
-  @Date    14 Jun 2026
+  @Version 1.349
+  @Date    04 Jul 2026
   
   @license
 
@@ -144,9 +144,9 @@ End;
 Function TGTParameter.GetText: String;
 
 Begin
-  If Length(FTokens) = 0 Then
-    Raise EGTException.Create(strTokenEmpty);
-  Result := FTokens[0].FText;
+  Result := '';
+  If Length(FTokens) > 0 Then
+    Result := FTokens[0].FText;
 End;
 
 (**
